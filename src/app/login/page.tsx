@@ -27,7 +27,7 @@ export default function LoginPage() {
         localStorage.setItem('profissional', JSON.stringify(loginData))
         router.push('/dashboard')
       }
-    } catch (err) {
+    } catch {
       setError('Erro ao fazer login')
     } finally {
       setLoading(false)

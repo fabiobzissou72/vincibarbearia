@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ShoppingBag, Plus, DollarSign, TrendingUp, Package, User, X, CreditCard } from 'lucide-react'
+import { ShoppingBag, Plus, DollarSign, TrendingUp, Package, User, X } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 
 interface Venda {

@@ -11,12 +11,12 @@ import {
 import { formatCurrency } from '@/lib/utils'
 
 interface RelatorioData {
-  agendamentos: any[]
-  vendas: any[]
-  profissionais: any[]
-  servicos: any[]
-  produtos: any[]
-  clientes: any[]
+  agendamentos: Array<Record<string, unknown>>
+  vendas: Array<Record<string, unknown>>
+  profissionais: Array<Record<string, unknown>>
+  servicos: Array<Record<string, unknown>>
+  produtos: Array<Record<string, unknown>>
+  clientes: Array<Record<string, unknown>>
 }
 
 export default function RelatoriosPage() {
@@ -34,6 +34,7 @@ export default function RelatoriosPage() {
 
   useEffect(() => {
     loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo])
 
   const loadData = async () => {

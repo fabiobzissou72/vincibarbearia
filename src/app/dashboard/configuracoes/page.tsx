@@ -49,7 +49,7 @@ export default function ConfiguracoesPage() {
   })
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
-  const [clientes, setClientes] = useState<any[]>([])
+  const [clientes, setClientes] = useState<Array<{ id: string; nome_completo: string; telefone: string }>>([])
   const [mensagemForm, setMensagemForm] = useState<MensagemForm>({
     cliente_id: '',
     mensagem: ''

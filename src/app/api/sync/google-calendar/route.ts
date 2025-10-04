@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { getCalendarEvents, CALENDAR_IDS } from '@/lib/google-calendar'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   try {
     console.log('Iniciando sincronização bidirecional com Google Calendar...')

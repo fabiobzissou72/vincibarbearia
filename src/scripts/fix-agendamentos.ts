@@ -53,7 +53,7 @@ async function fixAgendamentos() {
   console.log('\n\n🔧 Corrigindo agendamentos...\n')
 
   for (const agendamento of agendamentos || []) {
-    const updates: any = {}
+    const updates: Record<string, unknown> = {}
     let needsUpdate = false
 
     // Se não tem profissional_id, tentar encontrar pelo nome no campo "Barbeiro"

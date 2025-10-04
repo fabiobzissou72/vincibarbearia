@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { Users, Search, Phone, Mail, Calendar, Star, Edit, Trash2, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -73,16 +72,12 @@ export default function ClientesPage() {
     ultimo_servico: ''
   })
   const itemsPerPage = 20
-  const searchParams = useSearchParams()
 
   useEffect(() => {
-    const searchQuery = searchParams.get('search')
-    if (searchQuery) {
-      setSearchTerm(searchQuery)
-    }
     loadProfissionais()
-    loadClientes(searchQuery || '', '', 1)
-  }, [searchParams])
+    loadClientes('', '', 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     loadClientes(searchTerm, selectedBarbeiro, currentPage)

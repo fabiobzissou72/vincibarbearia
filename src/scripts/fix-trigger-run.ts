@@ -9,14 +9,14 @@ async function fixTrigger() {
   console.log('🔧 Corrigindo trigger...\n')
 
   // Remover o trigger problemático
-  const { error: dropError } = await supabase.rpc('exec_sql', {
+  await supabase.rpc('exec_sql', {
     sql: 'DROP TRIGGER IF EXISTS update_agendamentos_updated_at ON agendamentos;'
   })
 
   console.log('✅ Trigger removido (ou não existia)\n')
 
   // Adicionar coluna updated_at se não existir
-  const { error: alterError } = await supabase.rpc('exec_sql', {
+  await supabase.rpc('exec_sql', {
     sql: 'ALTER TABLE agendamentos ADD COLUMN IF NOT EXISTS updated_at timestamp without time zone DEFAULT now();'
   })
 
