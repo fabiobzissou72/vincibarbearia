@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
@@ -47,7 +47,7 @@ interface Plano {
   ativo: boolean
 }
 
-export default function ClientesPage() {
+function ClientesPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -1212,5 +1212,17 @@ export default function ClientesPage() {
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function ClientesPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-6">
+        <div className="text-white">Carregando clientes...</div>
+      </div>
+    }>
+      <ClientesPageContent />
+    </Suspense>
   )
 }
