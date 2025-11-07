@@ -10,7 +10,7 @@ interface Profissional {
   nome: string
   email: string
   telefone: string
-  especialidade: string
+  especialidades: string[] | string | null
   ativo: boolean
   data_cadastro: string
 }
@@ -20,6 +20,9 @@ export default function ProfissionaisPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingProfissional, setEditingProfissional] = useState<Profissional | null>(null)
+  const [modoEspecialidade, setModoEspecialidade] = useState<'selecionar' | 'criar'>('selecionar')
+  const [novaEspecialidade, setNovaEspecialidade] = useState('')
+  const [especialidadesSelecionadas, setEspecialidadesSelecionadas] = useState<string[]>([])
   const [editForm, setEditForm] = useState({
     nome: '',
     email: '',
@@ -51,56 +54,97 @@ export default function ProfissionaisPage() {
 
   const handleAddProfissional = async () => {
     try {
+      // Validação
+      if (!editForm.nome || !editForm.email || !editForm.telefone) {
+        alert('Por favor, preencha todos os campos obrigatórios (Nome, Email e Telefone)')
+        return
+      }
+
+      if (especialidadesSelecionadas.length === 0) {
+        alert('Por favor, adicione pelo menos uma especialidade')
+        return
+      }
+
       const { error } = await supabase
         .from('profissionais')
         .insert([{
-          ...editForm,
+          nome: editForm.nome,
+          email: editForm.email,
+          telefone: editForm.telefone,
+          especialidades: especialidadesSelecionadas,
+          ativo: editForm.ativo,
           data_cadastro: new Date().toISOString()
         }])
 
-      if (error) throw error
+      if (error) {
+        console.error('Erro detalhado:', error)
+        throw error
+      }
 
       alert('Profissional cadastrado com sucesso!')
-      setShowForm(false)
-      setEditForm({
-        nome: '',
-        email: '',
-        telefone: '',
-        especialidade: '',
-        ativo: true
-      })
+      resetForm()
       loadProfissionais()
     } catch (error) {
       console.error('Erro ao cadastrar profissional:', error)
-      alert('Erro ao cadastrar profissional')
+      alert('Erro ao cadastrar profissional: ' + (error as Error).message)
     }
+  }
+
+  const resetForm = () => {
+    setShowForm(false)
+    setEditingProfissional(null)
+    setModoEspecialidade('selecionar')
+    setNovaEspecialidade('')
+    setEspecialidadesSelecionadas([])
+    setEditForm({
+      nome: '',
+      email: '',
+      telefone: '',
+      especialidade: '',
+      ativo: true
+    })
   }
 
   const handleEditProfissional = async () => {
     if (!editingProfissional) return
 
     try {
+      // Validação
+      if (!editForm.nome || !editForm.email || !editForm.telefone) {
+        alert('Por favor, preencha todos os campos obrigatórios (Nome, Email e Telefone)')
+        return
+      }
+
+      if (especialidadesSelecionadas.length === 0) {
+        alert('Por favor, adicione pelo menos uma especialidade')
+        return
+      }
+
+      console.log('=== DEBUG EDITAR PROFISSIONAL ===')
+      console.log('Especialidades Selecionadas:', especialidadesSelecionadas)
+
       const { error } = await supabase
         .from('profissionais')
-        .update(editForm)
+        .update({
+          nome: editForm.nome,
+          email: editForm.email,
+          telefone: editForm.telefone,
+          especialidades: especialidadesSelecionadas,
+          ativo: editForm.ativo
+        })
         .eq('id', editingProfissional.id)
 
-      if (error) throw error
+      if (error) {
+        console.error('Erro detalhado do Supabase:', error)
+        throw error
+      }
 
       alert('Profissional atualizado com sucesso!')
-      setEditingProfissional(null)
-      setShowForm(false)
-      setEditForm({
-        nome: '',
-        email: '',
-        telefone: '',
-        especialidade: '',
-        ativo: true
-      })
+      resetForm()
       loadProfissionais()
     } catch (error) {
       console.error('Erro ao atualizar profissional:', error)
-      alert('Erro ao atualizar profissional')
+      alert('Erro ao atualizar profissional: ' + (error as Error).message)
     }
   }
 
@@ -124,22 +168,31 @@ export default function ProfissionaisPage() {
   }
 
   const openEditModal = (profissional: Profissional) => {
+    // Pegar todas especialidades existentes do profissional
+    const especialidadesExistentes = Array.isArray(profissional.especialidades)
+      ? profissional.especialidades
+      : (profissional.especialidades ? [profissional.especialidades] : [])
+
     setEditingProfissional(profissional)
+    setEspecialidadesSelecionadas(especialidadesExistentes)
     setEditForm({
-      nome: profissional.nome,
-      email: profissional.email,
-      telefone: profissional.telefone,
-      especialidade: profissional.especialidade || '',
+      nome: profissional.nome || '',
+      email: profissional.email || '',
+      telefone: profissional.telefone || '',
+      especialidade: '',
       ativo: profissional.ativo
     })
+    setModoEspecialidade('selecionar')
+    setNovaEspecialidade('')
     setShowForm(true)
   }
 
-  const getEspecialidadeIcon = (especialidade: string) => {
-    if (!especialidade) return '✂️'
-    if (especialidade.toLowerCase().includes('barba')) return '🧔'
-    if (especialidade.toLowerCase().includes('corte')) return '✂️'
-    if (especialidade.toLowerCase().includes('coloração')) return '🎨'
+  const getEspecialidadeIcon = (especialidade: string | null | undefined) => {
+    if (!especialidade || typeof especialidade !== 'string') return '✂️'
+    const esp = especialidade.toLowerCase()
+    if (esp.includes('barba')) return '🧔'
+    if (esp.includes('corte')) return '✂️'
+    if (esp.includes('coloração')) return '🎨'
     return '💈'
   }
 
@@ -160,7 +213,10 @@ export default function ProfissionaisPage() {
           <p className="text-purple-300">Gerencie a equipe da barbearia</p>
         </div>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            resetForm()
+            setShowForm(true)
+          }}
           className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -176,12 +232,20 @@ export default function ProfissionaisPage() {
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="text-3xl">
-                    {getEspecialidadeIcon(profissional.especialidade)}
+                    {getEspecialidadeIcon(
+                      Array.isArray(profissional.especialidades)
+                        ? profissional.especialidades[0]
+                        : profissional.especialidades
+                    )}
                   </div>
                   <div>
                     <CardTitle className="text-white text-lg">{profissional.nome}</CardTitle>
-                    {profissional.especialidade && (
-                      <p className="text-purple-300 text-sm">{profissional.especialidade}</p>
+                    {profissional.especialidades && (
+                      <p className="text-purple-300 text-sm">
+                        {Array.isArray(profissional.especialidades)
+                          ? profissional.especialidades.join(', ')
+                          : profissional.especialidades}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -258,17 +322,7 @@ export default function ProfissionaisPage() {
                 {editingProfissional ? 'Editar Profissional' : 'Novo Profissional'}
               </h2>
               <button
-                onClick={() => {
-                  setShowForm(false)
-                  setEditingProfissional(null)
-                  setEditForm({
-                    nome: '',
-                    email: '',
-                    telefone: '',
-                    especialidade: '',
-                    ativo: true
-                  })
-                }}
+                onClick={resetForm}
                 className="text-slate-400 hover:text-white"
               >
                 <X className="w-6 h-6" />
@@ -312,19 +366,130 @@ export default function ProfissionaisPage() {
               </div>
 
               <div>
-                <label className="block text-sm text-slate-400 mb-1">Especialidade</label>
-                <select
-                  value={editForm.especialidade}
-                  onChange={(e) => setEditForm({ ...editForm, especialidade: e.target.value })}
-                  className="w-full bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
-                >
-                  <option value="">Selecione...</option>
-                  <option value="Barbeiro">Barbeiro</option>
-                  <option value="Barbeiro Especialista em Barba">Barbeiro Especialista em Barba</option>
-                  <option value="Barbeiro Especialista em Corte">Barbeiro Especialista em Corte</option>
-                  <option value="Barbeiro e Coloração">Barbeiro e Coloração</option>
-                  <option value="Barbeiro Master">Barbeiro Master</option>
-                </select>
+                <label className="block text-sm text-slate-400 mb-2">Especialidades *</label>
+
+                {/* Especialidades Selecionadas (Chips) */}
+                {especialidadesSelecionadas.length > 0 && (
+                  <div className="mb-3 p-3 bg-slate-700/30 rounded border border-slate-600/50">
+                    <div className="text-xs text-slate-400 mb-2">Especialidades atuais:</div>
+                    <div className="flex flex-wrap gap-2">
+                      {especialidadesSelecionadas.map((esp, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center space-x-1 bg-purple-600/80 text-white px-3 py-1 rounded-full text-sm"
+                        >
+                          <span>{esp}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEspecialidadesSelecionadas(
+                                especialidadesSelecionadas.filter((_, i) => i !== index)
+                              )
+                            }}
+                            className="hover:bg-purple-700/50 rounded-full p-0.5 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Botões de modo */}
+                <div className="flex space-x-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModoEspecialidade('selecionar')
+                      setNovaEspecialidade('')
+                    }}
+                    className={`flex-1 px-3 py-2 rounded text-sm transition-colors ${
+                      modoEspecialidade === 'selecionar'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50'
+                    }`}
+                  >
+                    Selecionar Existente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModoEspecialidade('criar')
+                      setEditForm({ ...editForm, especialidade: '' })
+                    }}
+                    className={`flex-1 px-3 py-2 rounded text-sm transition-colors ${
+                      modoEspecialidade === 'criar'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-slate-700/50 text-slate-400 hover:bg-slate-600/50'
+                    }`}
+                  >
+                    Criar Nova
+                  </button>
+                </div>
+
+                {/* Campo de seleção ou criação com botão Adicionar */}
+                <div className="flex space-x-2">
+                  {modoEspecialidade === 'selecionar' ? (
+                    <select
+                      value={editForm.especialidade}
+                      onChange={(e) => setEditForm({ ...editForm, especialidade: e.target.value })}
+                      className="flex-1 bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="Barbeiro">Barbeiro</option>
+                      <option value="Barbeiro Especialista em Barba">Barbeiro Especialista em Barba</option>
+                      <option value="Barbeiro Especialista em Corte">Barbeiro Especialista em Corte</option>
+                      <option value="Barbeiro e Coloração">Barbeiro e Coloração</option>
+                      <option value="Barbeiro Master">Barbeiro Master</option>
+                    </select>
+                  ) : (
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={novaEspecialidade}
+                        onChange={(e) => setNovaEspecialidade(e.target.value)}
+                        placeholder="Ex: Barbeiro Especialista em Design de Sobrancelhas"
+                        className="w-full bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
+                      />
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const especialidadeParaAdicionar = modoEspecialidade === 'selecionar'
+                        ? editForm.especialidade
+                        : novaEspecialidade
+
+                      if (!especialidadeParaAdicionar || especialidadeParaAdicionar.trim() === '') {
+                        alert('Por favor, selecione ou digite uma especialidade')
+                        return
+                      }
+
+                      // Verificar se já existe
+                      if (especialidadesSelecionadas.includes(especialidadeParaAdicionar)) {
+                        alert('Esta especialidade já foi adicionada')
+                        return
+                      }
+
+                      // Adicionar à lista
+                      setEspecialidadesSelecionadas([...especialidadesSelecionadas, especialidadeParaAdicionar])
+
+                      // Limpar campos
+                      setEditForm({ ...editForm, especialidade: '' })
+                      setNovaEspecialidade('')
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded transition-colors flex items-center space-x-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Adicionar</span>
+                  </button>
+                </div>
+
+                {modoEspecialidade === 'criar' && (
+                  <p className="text-xs text-slate-500 mt-1">Digite o nome da nova especialidade e clique em Adicionar</p>
+                )}
               </div>
 
               <div className="flex space-x-3 pt-4">
@@ -335,17 +500,7 @@ export default function ProfissionaisPage() {
                   {editingProfissional ? 'Salvar Alterações' : 'Cadastrar Profissional'}
                 </button>
                 <button
-                  onClick={() => {
-                    setShowForm(false)
-                    setEditingProfissional(null)
-                    setEditForm({
-                      nome: '',
-                      email: '',
-                      telefone: '',
-                      especialidade: '',
-                      ativo: true
-                    })
-                  }}
+                  onClick={resetForm}
                   className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Cancelar
@@ -376,7 +531,12 @@ export default function ProfissionaisPage() {
               <Star className="w-5 h-5 text-yellow-400" />
               <div>
                 <div className="text-lg font-bold text-white">
-                  {profissionais.filter(p => p.especialidade?.includes('Master') || p.especialidade?.includes('Especialista')).length}
+                  {profissionais.filter(p => {
+                    const esp = Array.isArray(p.especialidades)
+                      ? p.especialidades.join(' ')
+                      : (p.especialidades || '')
+                    return esp.includes('Master') || esp.includes('Especialista')
+                  }).length}
                 </div>
                 <div className="text-sm text-purple-300">Especialistas</div>
               </div>

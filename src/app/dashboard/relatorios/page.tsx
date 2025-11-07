@@ -17,6 +17,7 @@ interface RelatorioData {
   servicos: Array<Record<string, unknown>>
   produtos: Array<Record<string, unknown>>
   clientes: Array<Record<string, unknown>>
+  totalClientesCount: number
 }
 
 export default function RelatoriosPage() {
@@ -27,7 +28,8 @@ export default function RelatoriosPage() {
     profissionais: [],
     servicos: [],
     produtos: [],
-    clientes: []
+    clientes: [],
+    totalClientesCount: 0
   })
   const [loading, setLoading] = useState(true)
   const [periodo, setPeriodo] = useState('todos')
@@ -133,10 +135,20 @@ export default function RelatoriosPage() {
         .select('*')
         .eq('ativo', true)
 
-      // Carregar clientes
+      // Carregar CONTAGEM TOTAL de clientes (mais eficiente)
+      const { count: totalClientesCount } = await supabase
+        .from('clientes')
+        .select('*', { count: 'exact', head: true })
+
+      console.log('=== DEBUG TOTAL CLIENTES ===')
+      console.log('Total de clientes (count):', totalClientesCount)
+
+      // Carregar clientes (para cálculo de VIP)
       const { data: clientes } = await supabase
         .from('clientes')
         .select('*')
+
+      console.log('Clientes carregados para VIP:', clientes?.length)
 
       setData({
         agendamentos: agendamentos || [],
@@ -144,7 +156,8 @@ export default function RelatoriosPage() {
         profissionais: profissionais || [],
         servicos: servicos || [],
         produtos: produtos || [],
-        clientes: clientes || []
+        clientes: clientes || [],
+        totalClientesCount: totalClientesCount || 0
       })
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
@@ -197,21 +210,37 @@ export default function RelatoriosPage() {
     return { nome: produto.nome, quantidade, faturamento }
   }).sort((a, b) => b.quantidade - a.quantidade).slice(0, 5)
 
-  // Clientes VIP - APENAS atendimentos onde compareceram
+  // Clientes VIP - is_vip = true OU 5+ atendimentos onde compareceram
+  console.log('=== DEBUG RELATÓRIOS VIP ===')
+  console.log('Total de clientes:', data.clientes.length)
+  console.log('Agendamentos onde compareceu:', agendamentosComparecidos.length)
+
   const clientesVIP = data.clientes.map(cliente => {
     const atendimentos = agendamentosComparecidos.filter(a => a.cliente_id === cliente.id).length
     const totalGasto = agendamentosComparecidos
       .filter(a => a.cliente_id === cliente.id)
       .reduce((sum, a) => sum + (a.valor || 0), 0)
 
+    const isVIPManual = cliente.is_vip === true
+    const isVIPPorVisitas = atendimentos >= 5
+    const isVIP = isVIPManual || isVIPPorVisitas
+
+    if (isVIP) {
+      console.log(`Cliente ${cliente.nome_completo}: ${atendimentos} atendimentos, is_vip=${isVIPManual}, VIP=${isVIP}`)
+    }
+
     return {
       nome: cliente.nome_completo,
       atendimentos,
-      totalGasto
+      totalGasto,
+      isVIPManual,
+      isVIP
     }
-  }).filter(c => c.atendimentos > 0)
+  }).filter(c => c.isVIP)  // Clientes com is_vip = true OU 5+ visitas
     .sort((a, b) => b.atendimentos - a.atendimentos)
-    .slice(0, 10)
+    // Removido .slice(0, 10) para mostrar TODOS os VIPs
+
+  console.log('Clientes VIP (manual OU 5+ visitas):', clientesVIP.length)
 
   // Status dos agendamentos
   const agendamentosPorStatus = {
@@ -511,34 +540,48 @@ export default function RelatoriosPage() {
       {/* Clientes VIP - CLICÁVEL */}
       <Card
         className="bg-gradient-to-r from-pink-800/30 to-purple-800/30 border-pink-700/50 cursor-pointer hover:border-pink-500 transition-colors"
-        onClick={() => router.push('/dashboard/clientes')}
+        onClick={() => router.push('/dashboard/clientes?filter=vip')}
       >
         <CardHeader>
           <CardTitle className="text-white flex items-center space-x-2">
             <Star className="w-6 h-6 text-pink-400" />
             <span>⭐ Clientes VIP - Os Fiéis da Casa</span>
-            <span className="text-xs text-pink-400">(clique para ver clientes)</span>
+            <span className="text-xs text-pink-400">(clique para ver apenas VIPs)</span>
           </CardTitle>
+          <p className="text-sm text-pink-300 mt-2">Marcados manualmente ou com 5+ visitas confirmadas</p>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {clientesVIP.map((cliente) => (
-              <div key={cliente.nome} className="flex items-center justify-between p-3 bg-pink-500/10 rounded-lg border border-pink-500/20">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
-                    <Star className="w-5 h-5 text-white" />
+          {clientesVIP.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {clientesVIP.map((cliente) => (
+                <div key={cliente.nome} className="flex items-center justify-between p-3 bg-pink-500/10 rounded-lg border border-pink-500/20">
+                  <div className="flex items-center space-x-3 flex-1">
+                    <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-purple-500 rounded-full flex items-center justify-center">
+                      <Star className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-white font-medium flex items-center gap-2">
+                        {cliente.nome}
+                        {cliente.isVIPManual && (
+                          <span className="text-xs bg-yellow-400/20 text-yellow-400 px-2 py-0.5 rounded">Manual</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-pink-300">{cliente.atendimentos} visitas</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-white font-medium">{cliente.nome}</div>
-                    <div className="text-sm text-pink-300">{cliente.atendimentos} visitas</div>
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-green-400">{formatCurrency(cliente.totalGasto)}</div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-green-400">{formatCurrency(cliente.totalGasto)}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-pink-300">
+              <Star className="w-12 h-12 text-pink-400 mx-auto mb-4 opacity-50" />
+              <p>Nenhum cliente VIP ainda</p>
+              <p className="text-sm text-pink-400 mt-2">Marque clientes como VIP ou eles se tornarão VIP com 5+ visitas</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -600,7 +643,7 @@ export default function RelatoriosPage() {
               <Users className="w-5 h-5 text-purple-400" />
               <div className="text-sm text-purple-300">Total de Clientes</div>
             </div>
-            <div className="text-2xl font-bold text-white">{data.clientes.length}</div>
+            <div className="text-2xl font-bold text-white">{data.totalClientesCount}</div>
           </CardContent>
         </Card>
       </div>

@@ -47,20 +47,6 @@ export default function LoginPage() {
             <p className="text-cyan-400 text-sm font-medium">BARBEARIA</p>
           </div>
 
-          {/* Credenciais de Teste */}
-          <div className="mb-6 bg-cyan-500/10 border border-cyan-500/20 rounded-lg p-4">
-            <p className="text-cyan-400 text-xs font-medium mb-2">🔧 Modo de Desenvolvimento</p>
-            <p className="text-slate-300 text-xs mb-2">Use estas credenciais para teste:</p>
-            <div className="space-y-1">
-              <p className="text-slate-300 text-xs">
-                <span className="text-cyan-400">Email:</span> admin@vince.com
-              </p>
-              <p className="text-slate-300 text-xs">
-                <span className="text-cyan-400">Senha:</span> 123456
-              </p>
-            </div>
-          </div>
-
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-6">
             <div>

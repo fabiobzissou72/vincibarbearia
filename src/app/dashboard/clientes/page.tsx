@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
-import { Users, Search, Phone, Mail, Calendar, Star, Edit, Trash2, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Users, Search, Phone, Mail, Calendar, Star, Edit, Trash2, Plus, ChevronLeft, ChevronRight, Send, X } from 'lucide-react'
 
 interface Cliente {
   id: string
@@ -30,6 +31,7 @@ interface Cliente {
   menory_long: string
   tratamento: string
   ultimo_servico: string
+  plano_id: string | null
 }
 
 interface Profissional {
@@ -37,16 +39,33 @@ interface Profissional {
   nome: string
 }
 
+interface Plano {
+  id: string
+  nome: string
+  valor_total: number
+  valor_original: number
+  ativo: boolean
+}
+
 export default function ClientesPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [totalClientes, setTotalClientes] = useState(0)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedBarbeiro, setSelectedBarbeiro] = useState('')
+  const [filtroVIP, setFiltroVIP] = useState(searchParams.get('filter') === 'vip')
   const [profissionais, setProfissionais] = useState<Profissional[]>([])
+  const [planos, setPlanos] = useState<Plano[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
+  const [clientesVisitas, setClientesVisitas] = useState<Record<string, number>>({})
+  const [clienteParaMensagem, setClienteParaMensagem] = useState<Cliente | null>(null)
+  const [mensagem, setMensagem] = useState('')
+  const [enviandoMensagem, setEnviandoMensagem] = useState(false)
+  const [webhookUrl, setWebhookUrl] = useState('')
   const [editForm, setEditForm] = useState({
     nome_completo: '',
     telefone: '',
@@ -69,15 +88,28 @@ export default function ClientesPage() {
     gosta_conversar: '',
     menory_long: '',
     tratamento: '',
-    ultimo_servico: ''
+    ultimo_servico: '',
+    plano_id: '' as string | null
   })
   const itemsPerPage = 20
 
   useEffect(() => {
     loadProfissionais()
+    loadPlanos()
+    loadClientesVisitas()
     loadClientes('', '', 1)
+    loadWebhookUrl()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    // Atualizar filtro VIP quando o parâmetro da URL mudar
+    const isVIPFilter = searchParams.get('filter') === 'vip'
+    setFiltroVIP(isVIPFilter)
+    setCurrentPage(1)
+    loadClientes(searchTerm, selectedBarbeiro, 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   useEffect(() => {
     loadClientes(searchTerm, selectedBarbeiro, currentPage)
@@ -98,49 +130,196 @@ export default function ClientesPage() {
     }
   }
 
+  const loadPlanos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('planos')
+        .select('id, nome, valor_total, valor_original, ativo')
+        .eq('ativo', true)
+        .order('nome')
+
+      if (error) throw error
+      console.log('Planos carregados:', data)
+      setPlanos(data || [])
+    } catch (error) {
+      console.error('Erro ao carregar planos:', error)
+    }
+  }
+
+  const loadClientesVisitas = async () => {
+    try {
+      // Carregar todos os agendamentos onde cliente compareceu
+      const { data: agendamentos, error } = await supabase
+        .from('agendamentos')
+        .select('cliente_id, compareceu')
+
+      if (error) throw error
+
+      console.log('=== DEBUG VISITAS ===')
+      console.log('Total de agendamentos:', agendamentos?.length)
+      console.log('Primeiros 5 agendamentos:', agendamentos?.slice(0, 5))
+
+      // Contar visitas por cliente (apenas onde compareceu ou não foi marcado)
+      const visitasPorCliente: Record<string, number> = {}
+      agendamentos?.forEach(ag => {
+        if (ag.cliente_id && ag.compareceu !== false) {
+          visitasPorCliente[ag.cliente_id] = (visitasPorCliente[ag.cliente_id] || 0) + 1
+        }
+      })
+
+      setClientesVisitas(visitasPorCliente)
+      console.log('Visitas por cliente carregadas:', visitasPorCliente)
+      console.log('Clientes com 5+ visitas:', Object.entries(visitasPorCliente).filter(([_, count]) => count >= 5))
+    } catch (error) {
+      console.error('Erro ao carregar visitas dos clientes:', error)
+    }
+  }
+
+  const loadWebhookUrl = async () => {
+    try {
+      const { data } = await supabase
+        .from('configuracoes')
+        .select('webhook_url')
+        .single()
+
+      if (data && data.webhook_url) {
+        setWebhookUrl(data.webhook_url)
+      }
+    } catch (error) {
+      console.log('Erro ao carregar webhook URL:', error)
+    }
+  }
+
+  const handleEnviarMensagem = async () => {
+    if (!clienteParaMensagem || !mensagem) {
+      alert('Por favor, digite a mensagem')
+      return
+    }
+
+    if (!webhookUrl) {
+      alert('Webhook não configurado. Configure em Configurações primeiro.')
+      return
+    }
+
+    try {
+      setEnviandoMensagem(true)
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          telefone: clienteParaMensagem.telefone,
+          mensagem: mensagem,
+          nome_cliente: clienteParaMensagem.nome_completo
+        })
+      })
+
+      if (response.ok) {
+        alert('Mensagem enviada com sucesso!')
+        setClienteParaMensagem(null)
+        setMensagem('')
+      } else {
+        throw new Error('Erro ao enviar mensagem')
+      }
+    } catch (error) {
+      console.error('Erro ao enviar mensagem:', error)
+      alert('Erro ao enviar mensagem. Verifique a URL do webhook.')
+    } finally {
+      setEnviandoMensagem(false)
+    }
+  }
+
   const loadClientes = async (search: string = '', barbeiro: string = '', page: number = 1) => {
     try {
       setLoading(true)
 
-      // Contar total de clientes
-      let countQuery = supabase
-        .from('clientes')
-        .select('*', { count: 'exact', head: true })
+      // Para filtro VIP, precisamos carregar TODOS os clientes primeiro para filtrar por visitas
+      if (filtroVIP) {
+        let query = supabase
+          .from('clientes')
+          .select('*')
+          .order('data_cadastro', { ascending: false })
 
-      if (search) {
-        countQuery = countQuery.or(`nome_completo.ilike.%${search}%,telefone.ilike.%${search}%,email.ilike.%${search}%`)
+        if (search) {
+          query = query.or(`nome_completo.ilike.%${search}%,telefone.ilike.%${search}%,email.ilike.%${search}%`)
+        }
+
+        if (barbeiro) {
+          query = query.ilike('profissional_preferido', `%${barbeiro}%`)
+        }
+
+        const { data: todosClientes, error } = await query
+
+        if (error) throw error
+
+        console.log('=== DEBUG FILTRO VIP ===')
+        console.log('Total de clientes no banco:', todosClientes?.length)
+        console.log('ClientesVisitas state:', clientesVisitas)
+
+        // Filtrar clientes VIP (is_vip = true OU 5+ visitas)
+        const clientesVIP = (todosClientes || []).filter(cliente => {
+          const visitas = clientesVisitas[cliente.id] || 0
+          const isVIPManual = cliente.is_vip === true
+          const isVIPPorVisitas = visitas >= 5
+          const isVIP = isVIPManual || isVIPPorVisitas
+
+          console.log(`Cliente ${cliente.nome_completo}: ${visitas} visitas, is_vip=${isVIPManual}, VIP=${isVIP}`)
+          return isVIP
+        })
+
+        console.log(`Clientes VIP encontrados (manual OU 5+ visitas): ${clientesVIP.length}`)
+
+        // Aplicar paginação manualmente
+        const from = (page - 1) * itemsPerPage
+        const to = from + itemsPerPage
+        const clientesPaginados = clientesVIP.slice(from, to)
+
+        setTotalClientes(clientesVIP.length)
+        setClientes(clientesPaginados)
+        console.log(`Clientes VIP carregados: ${clientesPaginados.length} de ${clientesVIP.length} (página ${page})`)
+      } else {
+        // Modo normal (sem filtro VIP)
+        let countQuery = supabase
+          .from('clientes')
+          .select('*', { count: 'exact', head: true })
+
+        if (search) {
+          countQuery = countQuery.or(`nome_completo.ilike.%${search}%,telefone.ilike.%${search}%,email.ilike.%${search}%`)
+        }
+
+        if (barbeiro) {
+          countQuery = countQuery.ilike('profissional_preferido', `%${barbeiro}%`)
+        }
+
+        const { count } = await countQuery
+        setTotalClientes(count || 0)
+
+        // Buscar clientes com paginação
+        const from = (page - 1) * itemsPerPage
+        const to = from + itemsPerPage - 1
+
+        let query = supabase
+          .from('clientes')
+          .select('*')
+          .order('data_cadastro', { ascending: false })
+          .range(from, to)
+
+        if (search) {
+          query = query.or(`nome_completo.ilike.%${search}%,telefone.ilike.%${search}%,email.ilike.%${search}%`)
+        }
+
+        if (barbeiro) {
+          query = query.ilike('profissional_preferido', `%${barbeiro}%`)
+        }
+
+        const { data, error } = await query
+
+        if (error) throw error
+        console.log(`Clientes carregados: ${data?.length} de ${count} (página ${page})`)
+        setClientes(data || [])
       }
-
-      if (barbeiro) {
-        countQuery = countQuery.ilike('profissional_preferido', `%${barbeiro}%`)
-      }
-
-      const { count } = await countQuery
-      setTotalClientes(count || 0)
-
-      // Buscar clientes com paginação
-      const from = (page - 1) * itemsPerPage
-      const to = from + itemsPerPage - 1
-
-      let query = supabase
-        .from('clientes')
-        .select('*')
-        .order('data_cadastro', { ascending: false })
-        .range(from, to)
-
-      if (search) {
-        query = query.or(`nome_completo.ilike.%${search}%,telefone.ilike.%${search}%,email.ilike.%${search}%`)
-      }
-
-      if (barbeiro) {
-        query = query.ilike('profissional_preferido', `%${barbeiro}%`)
-      }
-
-      const { data, error } = await query
-
-      if (error) throw error
-      console.log(`Clientes carregados: ${data?.length} de ${count} (página ${page})`)
-      setClientes(data || [])
     } catch (error) {
       console.error('Erro ao carregar clientes:', error)
     } finally {
@@ -175,6 +354,8 @@ export default function ClientesPage() {
   }
 
   const handleEdit = (cliente: Cliente) => {
+    console.log('Editando cliente:', cliente)
+    console.log('Plano ID do cliente:', cliente.plano_id)
     setEditingCliente(cliente)
     setEditForm({
       nome_completo: cliente.nome_completo || '',
@@ -198,7 +379,8 @@ export default function ClientesPage() {
       gosta_conversar: cliente.gosta_conversar || '',
       menory_long: cliente.menory_long || '',
       tratamento: cliente.tratamento || '',
-      ultimo_servico: cliente.ultimo_servico || ''
+      ultimo_servico: cliente.ultimo_servico || '',
+      plano_id: cliente.plano_id || null
     })
   }
 
@@ -206,6 +388,9 @@ export default function ClientesPage() {
     if (!editingCliente) return
 
     try {
+      console.log('Salvando editForm:', editForm)
+      console.log('Plano ID sendo salvo:', editForm.plano_id)
+
       const { error } = await supabase
         .from('clientes')
         .update(editForm)
@@ -236,9 +421,26 @@ export default function ClientesPage() {
         nome_completo: '',
         telefone: '',
         email: '',
+        data_nascimento: '',
+        profissao: '',
+        estado_civil: '',
+        tem_filhos: '',
+        nomes_filhos: [] as string[],
+        idades_filhos: [] as string[],
+        estilo_cabelo: '',
+        preferencias_corte: '',
+        tipo_bebida: '',
+        alergias: '',
+        frequencia_retorno: '',
         profissional_preferido: '',
         observacoes: '',
-        is_vip: false
+        is_vip: false,
+        como_soube: '',
+        gosta_conversar: '',
+        menory_long: '',
+        tratamento: '',
+        ultimo_servico: '',
+        plano_id: null
       })
       loadClientes(searchTerm, selectedBarbeiro, currentPage)
     } catch (error) {
@@ -322,6 +524,47 @@ export default function ClientesPage() {
               </button>
             </div>
 
+            {/* Filtros VIP / Todos */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    setFiltroVIP(false)
+                    setCurrentPage(1)
+                    router.push('/dashboard/clientes')
+                  }}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    !filtroVIP
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-600/50'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Todos</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setFiltroVIP(true)
+                    setCurrentPage(1)
+                    router.push('/dashboard/clientes?filter=vip')
+                  }}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    filtroVIP
+                      ? 'bg-gradient-to-r from-yellow-600 to-orange-600 text-white'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-600/50'
+                  }`}
+                >
+                  <Star className="w-4 h-4" />
+                  <span>Apenas VIPs</span>
+                </button>
+              </div>
+
+              <div className="text-sm text-slate-400">
+                {filtroVIP && <span className="text-yellow-400">Mostrando clientes VIP (marcados manualmente ou com 5+ visitas)</span>}
+              </div>
+            </div>
+
             <div className="flex items-center justify-between text-sm text-slate-400">
               <div className="flex items-center space-x-2">
                 <Users className="w-4 h-4" />
@@ -389,10 +632,38 @@ export default function ClientesPage() {
                           ✂️ Preferência: {cliente.profissional_preferido}
                         </div>
                       )}
+
+                      {/* Mostrar número de visitas e tipo de VIP */}
+                      <div className="mt-1 text-sm flex items-center gap-3">
+                        {clientesVisitas[cliente.id] !== undefined && (
+                          <span className={`${
+                            clientesVisitas[cliente.id] >= 5
+                              ? 'text-yellow-400 font-semibold'
+                              : 'text-slate-400'
+                          }`}>
+                            📊 {clientesVisitas[cliente.id]} {clientesVisitas[cliente.id] === 1 ? 'visita' : 'visitas'}
+                          </span>
+                        )}
+                        {cliente.is_vip && (
+                          <span className="text-yellow-400 font-semibold bg-yellow-400/10 px-2 py-0.5 rounded">
+                            ⭐ VIP Manual
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
                   <div className="flex space-x-2">
+                    <button
+                      onClick={() => {
+                        setClienteParaMensagem(cliente)
+                        setMensagem('')
+                      }}
+                      className="p-2 text-green-300 hover:text-white hover:bg-green-700/50 rounded-lg transition-colors"
+                      title="Enviar mensagem"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
                     <button
                       onClick={() => handleEdit(cliente)}
                       className="p-2 text-purple-300 hover:text-white hover:bg-purple-700/50 rounded-lg transition-colors"
@@ -662,6 +933,23 @@ export default function ClientesPage() {
                   </div>
 
                   <div>
+                    <label className="block text-sm text-slate-400 mb-1">Plano de Pacote</label>
+                    <select
+                      value={editForm.plano_id || ''}
+                      onChange={(e) => setEditForm({ ...editForm, plano_id: e.target.value || null })}
+                      className="w-full bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
+                    >
+                      <option value="">Nenhum plano</option>
+                      {planos.map(plano => (
+                        <option key={plano.id} value={plano.id}>
+                          {plano.nome} - R$ {plano.valor_total.toFixed(2)}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">Selecione um plano de pacote ativo para o cliente</p>
+                  </div>
+
+                  <div>
                     <label className="block text-sm text-slate-400 mb-1">Frequência de Retorno</label>
                     <select
                       value={editForm.frequencia_retorno}
@@ -785,6 +1073,92 @@ export default function ClientesPage() {
               >
                 Cancelar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Enviar Mensagem */}
+      {clienteParaMensagem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-lg p-6 max-w-lg w-full border border-slate-700">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-white flex items-center space-x-2">
+                <Send className="w-6 h-6 text-green-400" />
+                <span>Enviar Mensagem</span>
+              </h2>
+              <button
+                onClick={() => {
+                  setClienteParaMensagem(null)
+                  setMensagem('')
+                }}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Info do Cliente */}
+              <div className="bg-slate-700/50 rounded-lg p-4 border border-slate-600/50">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">
+                      {clienteParaMensagem.nome_completo?.charAt(0)?.toUpperCase() || '?'}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="font-medium text-white">{clienteParaMensagem.nome_completo}</div>
+                    <div className="text-sm text-slate-400 flex items-center space-x-1">
+                      <Phone className="w-3 h-3" />
+                      <span>{clienteParaMensagem.telefone}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Campo de Mensagem */}
+              <div>
+                <label className="block text-sm text-slate-400 mb-2">Mensagem</label>
+                <textarea
+                  value={mensagem}
+                  onChange={(e) => setMensagem(e.target.value)}
+                  placeholder="Digite a mensagem que será enviada via WhatsApp..."
+                  rows={5}
+                  className="w-full bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white resize-none placeholder-slate-500"
+                  autoFocus
+                />
+              </div>
+
+              {/* Status do Webhook */}
+              <div className="flex items-center space-x-2 text-sm">
+                {webhookUrl ? (
+                  <span className="text-green-400">✓ Webhook configurado</span>
+                ) : (
+                  <span className="text-yellow-400">⚠ Configure o webhook em Configurações primeiro</span>
+                )}
+              </div>
+
+              {/* Botões */}
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={handleEnviarMensagem}
+                  disabled={enviandoMensagem || !webhookUrl || !mensagem}
+                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{enviandoMensagem ? 'Enviando...' : 'Enviar Mensagem'}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setClienteParaMensagem(null)
+                    setMensagem('')
+                  }}
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
         </div>

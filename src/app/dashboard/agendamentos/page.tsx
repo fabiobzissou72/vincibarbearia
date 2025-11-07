@@ -42,11 +42,17 @@ interface Cliente {
   telefone: string
 }
 
+type FiltroTemporal = 'hoje' | 'amanha' | 'semana' | 'proximos7' | 'passados' | 'todos' | 'personalizado'
+type FiltroStatus = 'todos' | 'agendado' | 'confirmado' | 'em_andamento' | 'concluido' | 'cancelado'
+
 export default function AgendamentosPage() {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [filtroTemporal, setFiltroTemporal] = useState<FiltroTemporal>('hoje')
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos')
+  const [dataPersonalizada, setDataPersonalizada] = useState('')
   const [editingAgendamento, setEditingAgendamento] = useState<Agendamento | null>(null)
   const [profissionais, setProfissionais] = useState<Profissional[]>([])
   const [servicos, setServicos] = useState<Servico[]>([])
@@ -68,7 +74,7 @@ export default function AgendamentosPage() {
     loadAgendamentos()
     loadProfissionais()
     loadServicos()
-  }, [selectedDate])
+  }, [filtroTemporal, filtroStatus, dataPersonalizada])
 
   const loadProfissionais = async () => {
     const { data } = await supabase
@@ -131,12 +137,61 @@ export default function AgendamentosPage() {
         `)
         .order('hora_inicio')
 
-      // Aplicar filtro de data somente se houver uma data selecionada
-      if (selectedDate) {
-        // Converter de YYYY-MM-DD para DD/MM/YYYY
-        const [year, month, day] = selectedDate.split('-')
-        const dataBR = `${day}/${month}/${year}`
-        query = query.eq('data_agendamento', dataBR)
+      // Calcular datas baseado no filtro temporal
+      const hoje = new Date()
+      const hojeStr = hoje.toISOString().split('T')[0]
+
+      let dataFiltro = ''
+
+      switch (filtroTemporal) {
+        case 'hoje':
+          const [yearH, monthH, dayH] = hojeStr.split('-')
+          dataFiltro = `${dayH}/${monthH}/${yearH}`
+          query = query.eq('data_agendamento', dataFiltro)
+          break
+
+        case 'amanha':
+          const amanha = new Date(hoje)
+          amanha.setDate(hoje.getDate() + 1)
+          const amanhaStr = amanha.toISOString().split('T')[0]
+          const [yearA, monthA, dayA] = amanhaStr.split('-')
+          dataFiltro = `${dayA}/${monthA}/${yearA}`
+          query = query.eq('data_agendamento', dataFiltro)
+          break
+
+        case 'semana':
+          // Domingo até sábado da semana atual
+          const inicioSemana = new Date(hoje)
+          inicioSemana.setDate(hoje.getDate() - hoje.getDay())
+          const fimSemana = new Date(inicioSemana)
+          fimSemana.setDate(inicioSemana.getDate() + 6)
+          // Para filtro de semana, vamos buscar todos e filtrar em memória
+          break
+
+        case 'proximos7':
+          // Próximos 7 dias a partir de hoje
+          break
+
+        case 'passados':
+          // Últimos 30 dias
+          break
+
+        case 'personalizado':
+          if (dataPersonalizada) {
+            const [yearP, monthP, dayP] = dataPersonalizada.split('-')
+            dataFiltro = `${dayP}/${monthP}/${yearP}`
+            query = query.eq('data_agendamento', dataFiltro)
+          }
+          break
+
+        case 'todos':
+          // Sem filtro de data
+          break
+      }
+
+      // Aplicar filtro de status
+      if (filtroStatus !== 'todos') {
+        query = query.eq('status', filtroStatus)
       }
 
       const { data, error } = await query
@@ -160,9 +215,44 @@ export default function AgendamentosPage() {
         }
       }
 
-      console.log('Agendamentos carregados:', data)
-      console.log('Data filtrada:', selectedDate)
-      setAgendamentos(data || [])
+      // Filtrar em memória para casos de range de datas
+      let agendamentosFiltrados = data || []
+
+      if (filtroTemporal === 'semana' || filtroTemporal === 'proximos7' || filtroTemporal === 'passados') {
+        agendamentosFiltrados = agendamentosFiltrados.filter(agendamento => {
+          // Converter data DD/MM/YYYY para Date
+          const [day, month, year] = agendamento.data_agendamento.split('/')
+          const dataAgend = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+
+          if (filtroTemporal === 'semana') {
+            const inicioSemana = new Date(hoje)
+            inicioSemana.setDate(hoje.getDate() - hoje.getDay())
+            inicioSemana.setHours(0, 0, 0, 0)
+            const fimSemana = new Date(inicioSemana)
+            fimSemana.setDate(inicioSemana.getDate() + 6)
+            fimSemana.setHours(23, 59, 59, 999)
+            return dataAgend >= inicioSemana && dataAgend <= fimSemana
+          } else if (filtroTemporal === 'proximos7') {
+            const hojeInicio = new Date(hoje)
+            hojeInicio.setHours(0, 0, 0, 0)
+            const proximos7 = new Date(hoje)
+            proximos7.setDate(hoje.getDate() + 7)
+            proximos7.setHours(23, 59, 59, 999)
+            return dataAgend >= hojeInicio && dataAgend <= proximos7
+          } else if (filtroTemporal === 'passados') {
+            const passados30 = new Date(hoje)
+            passados30.setDate(hoje.getDate() - 30)
+            passados30.setHours(0, 0, 0, 0)
+            const hojeInicio = new Date(hoje)
+            hojeInicio.setHours(0, 0, 0, 0)
+            return dataAgend >= passados30 && dataAgend < hojeInicio
+          }
+          return true
+        })
+      }
+
+      console.log('Agendamentos carregados:', agendamentosFiltrados)
+      setAgendamentos(agendamentosFiltrados)
     } catch (error) {
       console.error('Erro ao carregar agendamentos:', error)
     } finally {
@@ -364,25 +454,179 @@ export default function AgendamentosPage() {
       {/* Filtros */}
       <Card className="bg-slate-800/50 border-slate-700/50">
         <CardContent className="p-4">
-          <div className="flex items-center space-x-4">
+          <div className="space-y-4">
+            {/* Filtro Temporal */}
             <div>
-              <label className="block text-sm text-slate-400 mb-1">Data</label>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
-              />
+              <label className="block text-sm text-slate-400 mb-2 font-medium">Período</label>
+              <div className="flex items-center flex-wrap gap-2">
+                <button
+                  onClick={() => setFiltroTemporal('hoje')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroTemporal === 'hoje'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Hoje
+                </button>
+
+                <button
+                  onClick={() => setFiltroTemporal('amanha')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroTemporal === 'amanha'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Amanhã
+                </button>
+
+                <button
+                  onClick={() => setFiltroTemporal('semana')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroTemporal === 'semana'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Esta Semana
+                </button>
+
+                <button
+                  onClick={() => setFiltroTemporal('proximos7')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroTemporal === 'proximos7'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Próximos 7 dias
+                </button>
+
+                <button
+                  onClick={() => setFiltroTemporal('passados')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroTemporal === 'passados'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Passados (30 dias)
+                </button>
+
+                <button
+                  onClick={() => setFiltroTemporal('todos')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroTemporal === 'todos'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Todos
+                </button>
+
+                <button
+                  onClick={() => setFiltroTemporal('personalizado')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                    filtroTemporal === 'personalizado'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  <Calendar className="w-4 h-4" />
+                  Personalizado
+                </button>
+              </div>
+
+              {/* Data Personalizada */}
+              {filtroTemporal === 'personalizado' && (
+                <div className="mt-3">
+                  <input
+                    type="date"
+                    value={dataPersonalizada}
+                    onChange={(e) => setDataPersonalizada(e.target.value)}
+                    className="bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
+                  />
+                </div>
+              )}
             </div>
-            <button
-              onClick={() => setSelectedDate('')}
-              className="mt-5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm transition-colors"
-            >
-              Mostrar Todos
-            </button>
-            <div className="flex items-center space-x-2 text-sm text-slate-400">
+
+            {/* Filtro de Status */}
+            <div>
+              <label className="block text-sm text-slate-400 mb-2 font-medium">Status</label>
+              <div className="flex items-center flex-wrap gap-2">
+                <button
+                  onClick={() => setFiltroStatus('todos')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroStatus === 'todos'
+                      ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Todos
+                </button>
+
+                <button
+                  onClick={() => setFiltroStatus('agendado')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroStatus === 'agendado'
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Agendado
+                </button>
+
+                <button
+                  onClick={() => setFiltroStatus('confirmado')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroStatus === 'confirmado'
+                      ? 'bg-green-600 text-white shadow-lg shadow-green-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Confirmado
+                </button>
+
+                <button
+                  onClick={() => setFiltroStatus('em_andamento')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroStatus === 'em_andamento'
+                      ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Em Andamento
+                </button>
+
+                <button
+                  onClick={() => setFiltroStatus('concluido')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroStatus === 'concluido'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Concluído
+                </button>
+
+                <button
+                  onClick={() => setFiltroStatus('cancelado')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    filtroStatus === 'cancelado'
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-500/50'
+                      : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Cancelado
+                </button>
+              </div>
+            </div>
+
+            {/* Contador */}
+            <div className="flex items-center space-x-2 text-sm text-slate-400 pt-2 border-t border-slate-700">
               <Calendar className="w-4 h-4" />
-              <span>{agendamentos.length} agendamentos</span>
+              <span>{agendamentos.length} agendamentos encontrados</span>
             </div>
           </div>
         </CardContent>
