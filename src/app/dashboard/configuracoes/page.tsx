@@ -3,7 +3,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Settings, Building2, Clock, DollarSign, Bell, Users, Save, Send, Link } from 'lucide-react'
+import { Settings, Building2, Clock, DollarSign, Bell, Users, Save, Link } from 'lucide-react'
+
+interface HorarioDia {
+  abertura: string
+  fechamento: string
+  ativo: boolean
+}
 
 interface Configuracao {
   id?: string
@@ -14,6 +20,7 @@ interface Configuracao {
   horario_abertura: string
   horario_fechamento: string
   dias_funcionamento: string[]
+  horarios_por_dia: Record<string, HorarioDia>
   tempo_padrao_servico: number
   valor_minimo_agendamento: number
   notificacoes_whatsapp: boolean
@@ -21,11 +28,6 @@ interface Configuracao {
   aceita_agendamento_online: boolean
   comissao_barbeiro_percentual: number
   webhook_url: string
-}
-
-interface MensagemForm {
-  cliente_id: string
-  mensagem: string
 }
 
 const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
@@ -39,6 +41,15 @@ export default function ConfiguracoesPage() {
     horario_abertura: '09:00',
     horario_fechamento: '19:00',
     dias_funcionamento: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
+    horarios_por_dia: {
+      'Segunda': { abertura: '09:00', fechamento: '19:00', ativo: true },
+      'Terça': { abertura: '09:00', fechamento: '19:00', ativo: true },
+      'Quarta': { abertura: '09:00', fechamento: '19:00', ativo: true },
+      'Quinta': { abertura: '09:00', fechamento: '19:00', ativo: true },
+      'Sexta': { abertura: '09:00', fechamento: '19:00', ativo: true },
+      'Sábado': { abertura: '09:00', fechamento: '18:00', ativo: true },
+      'Domingo': { abertura: '09:00', fechamento: '18:00', ativo: false }
+    },
     tempo_padrao_servico: 30,
     valor_minimo_agendamento: 0,
     notificacoes_whatsapp: true,
@@ -49,16 +60,9 @@ export default function ConfiguracoesPage() {
   })
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
-  const [clientes, setClientes] = useState<Array<{ id: string; nome_completo: string; telefone: string }>>([])
-  const [mensagemForm, setMensagemForm] = useState<MensagemForm>({
-    cliente_id: '',
-    mensagem: ''
-  })
-  const [enviandoMensagem, setEnviandoMensagem] = useState(false)
 
   useEffect(() => {
     loadConfig()
-    loadClientes()
   }, [])
 
   const loadConfig = async () => {
@@ -70,6 +74,18 @@ export default function ConfiguracoesPage() {
         .single()
 
       if (data && !error) {
+        // Se não existir horarios_por_dia, criar baseado nos dados antigos
+        if (!data.horarios_por_dia) {
+          const horariosPorDia: Record<string, HorarioDia> = {}
+          DIAS_SEMANA.forEach(dia => {
+            horariosPorDia[dia] = {
+              abertura: data.horario_abertura || '09:00',
+              fechamento: data.horario_fechamento || '19:00',
+              ativo: data.dias_funcionamento?.includes(dia) ?? false
+            }
+          })
+          data.horarios_por_dia = horariosPorDia
+        }
         setConfig(data)
       }
     } catch (error) {
@@ -79,95 +95,73 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  const loadClientes = async () => {
-    const { data } = await supabase
-      .from('clientes')
-      .select('id, nome_completo, telefone')
-      .order('nome_completo')
-
-    setClientes(data || [])
-  }
-
   const handleSave = async () => {
     try {
       setSalvando(true)
 
+      let result
       // Tentar salvar (se tabela existir)
       if (config.id) {
-        await supabase
+        result = await supabase
           .from('configuracoes')
           .update(config)
           .eq('id', config.id)
       } else {
-        await supabase
+        result = await supabase
           .from('configuracoes')
           .insert([config])
+          .select()
+          .single()
+      }
+
+      if (result.error) {
+        throw result.error
+      }
+
+      // Se for inserção, atualizar com o novo ID retornado
+      if (!config.id && result.data) {
+        setConfig({ ...config, id: result.data.id })
       }
 
       alert('Configurações salvas com sucesso!')
+      // Recarregar configurações para garantir sincronização
+      await loadConfig()
     } catch (error) {
       console.error('Erro ao salvar:', error)
-      alert('Configurações atualizadas (apenas nesta sessão)')
+      alert('Erro ao salvar configurações: ' + (error as any).message)
     } finally {
       setSalvando(false)
     }
   }
 
   const toggleDia = (dia: string) => {
-    if (config.dias_funcionamento.includes(dia)) {
-      setConfig({
-        ...config,
-        dias_funcionamento: config.dias_funcionamento.filter(d => d !== dia)
-      })
-    } else {
-      setConfig({
-        ...config,
-        dias_funcionamento: [...config.dias_funcionamento, dia]
-      })
-    }
+    const novoAtivo = !config.horarios_por_dia[dia].ativo
+    setConfig({
+      ...config,
+      horarios_por_dia: {
+        ...config.horarios_por_dia,
+        [dia]: {
+          ...config.horarios_por_dia[dia],
+          ativo: novoAtivo
+        }
+      },
+      dias_funcionamento: novoAtivo
+        ? [...config.dias_funcionamento, dia]
+        : config.dias_funcionamento.filter(d => d !== dia)
+    })
   }
 
-  const enviarMensagem = async () => {
-    if (!mensagemForm.cliente_id || !mensagemForm.mensagem) {
-      alert('Selecione um cliente e digite a mensagem')
-      return
-    }
-
-    if (!config.webhook_url) {
-      alert('Configure a URL do Webhook primeiro')
-      return
-    }
-
-    try {
-      setEnviandoMensagem(true)
-
-      const cliente = clientes.find(c => c.id === mensagemForm.cliente_id)
-
-      // Enviar para o webhook
-      const response = await fetch(config.webhook_url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          telefone: cliente.telefone,
-          mensagem: mensagemForm.mensagem,
-          nome_cliente: cliente.nome_completo
-        })
-      })
-
-      if (response.ok) {
-        alert('Mensagem enviada com sucesso!')
-        setMensagemForm({ cliente_id: '', mensagem: '' })
-      } else {
-        throw new Error('Erro ao enviar mensagem')
+  const updateHorarioDia = (dia: string, field: 'abertura' | 'fechamento', value: string) => {
+    setConfig({
+      ...config,
+      horarios_por_dia: {
+        ...config.horarios_por_dia,
+        [dia]: {
+          ...config.horarios_por_dia[dia],
+          [field]: value
+        }
       }
-    } catch (error) {
-      console.error('Erro ao enviar mensagem:', error)
-      alert('Erro ao enviar mensagem. Verifique a URL do webhook.')
-    } finally {
-      setEnviandoMensagem(false)
-    }
+    })
   }
 
   if (loading) {
@@ -245,53 +239,101 @@ export default function ConfiguracoesPage() {
           </CardContent>
         </Card>
 
-        {/* Horário de Funcionamento */}
-        <Card className="bg-purple-900/20 border-purple-700/50">
+        {/* Horário de Funcionamento - Ocupação Total */}
+        <Card className="bg-purple-900/20 border-purple-700/50 lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-white flex items-center space-x-2">
               <Clock className="w-5 h-5 text-purple-400" />
-              <span>Horário de Funcionamento</span>
+              <span>Horário de Funcionamento por Dia</span>
             </CardTitle>
+            <p className="text-sm text-purple-300 mt-1">Configure os horários individuais para cada dia da semana</p>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-purple-300 mb-1">Abertura</label>
-                <input
-                  type="time"
-                  value={config.horario_abertura}
-                  onChange={(e) => setConfig({ ...config, horario_abertura: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-purple-600/50 rounded text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-purple-300 mb-1">Fechamento</label>
-                <input
-                  type="time"
-                  value={config.horario_fechamento}
-                  onChange={(e) => setConfig({ ...config, horario_fechamento: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-800 border border-purple-600/50 rounded text-white"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm text-purple-300 mb-2">Dias de Funcionamento</label>
-              <div className="grid grid-cols-2 gap-2">
-                {DIAS_SEMANA.map(dia => (
-                  <button
-                    key={dia}
-                    onClick={() => toggleDia(dia)}
-                    className={`px-3 py-2 rounded text-sm transition-colors ${
-                      config.dias_funcionamento.includes(dia)
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-slate-700 text-slate-400'
-                    }`}
-                  >
-                    {dia}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <CardContent className="space-y-3">
+            {DIAS_SEMANA.map(dia => {
+              const horario = config.horarios_por_dia[dia]
+              const isAtivo = horario?.ativo ?? false
+
+              return (
+                <div key={dia} className={`p-4 rounded-lg border transition-all ${
+                  isAtivo
+                    ? 'bg-purple-700/20 border-purple-600/50'
+                    : 'bg-slate-800/50 border-slate-700/50'
+                }`}>
+                  <div className="flex items-center justify-between gap-4">
+                    {/* Checkbox e Nome do Dia */}
+                    <div className="flex items-center space-x-3 min-w-[120px]">
+                      <button
+                        onClick={() => toggleDia(dia)}
+                        className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
+                          isAtivo
+                            ? 'bg-purple-600 border-purple-600'
+                            : 'bg-slate-700 border-slate-600'
+                        }`}
+                      >
+                        {isAtivo && (
+                          <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                      <span className={`font-medium ${isAtivo ? 'text-white' : 'text-slate-400'}`}>
+                        {dia}
+                      </span>
+                    </div>
+
+                    {/* Horários */}
+                    <div className="flex items-center space-x-3 flex-1">
+                      <div className="flex items-center space-x-2 flex-1">
+                        <label className={`text-sm whitespace-nowrap ${isAtivo ? 'text-purple-300' : 'text-slate-500'}`}>
+                          Abertura:
+                        </label>
+                        <input
+                          type="time"
+                          value={horario?.abertura || '09:00'}
+                          onChange={(e) => updateHorarioDia(dia, 'abertura', e.target.value)}
+                          disabled={!isAtivo}
+                          className={`px-3 py-2 rounded text-sm ${
+                            isAtivo
+                              ? 'bg-slate-800 border border-purple-600/50 text-white'
+                              : 'bg-slate-700/50 border border-slate-600/50 text-slate-500'
+                          }`}
+                        />
+                      </div>
+
+                      <span className={`${isAtivo ? 'text-purple-300' : 'text-slate-500'}`}>às</span>
+
+                      <div className="flex items-center space-x-2 flex-1">
+                        <label className={`text-sm whitespace-nowrap ${isAtivo ? 'text-purple-300' : 'text-slate-500'}`}>
+                          Fechamento:
+                        </label>
+                        <input
+                          type="time"
+                          value={horario?.fechamento || '19:00'}
+                          onChange={(e) => updateHorarioDia(dia, 'fechamento', e.target.value)}
+                          disabled={!isAtivo}
+                          className={`px-3 py-2 rounded text-sm ${
+                            isAtivo
+                              ? 'bg-slate-800 border border-purple-600/50 text-white'
+                              : 'bg-slate-700/50 border border-slate-600/50 text-slate-500'
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Status */}
+                    <div className="min-w-[80px] text-right">
+                      <span className={`text-xs px-2 py-1 rounded ${
+                        isAtivo
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {isAtivo ? 'Aberto' : 'Fechado'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </CardContent>
         </Card>
 
@@ -418,58 +460,6 @@ export default function ConfiguracoesPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Enviar Mensagem */}
-      <Card className="bg-gradient-to-r from-green-900/30 to-blue-900/30 border-green-700/50">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center space-x-2">
-            <Send className="w-5 h-5 text-green-400" />
-            <span>Enviar Mensagem para Cliente</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-purple-300 mb-1">Selecione o Cliente</label>
-              <select
-                value={mensagemForm.cliente_id}
-                onChange={(e) => setMensagemForm({ ...mensagemForm, cliente_id: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-purple-600/50 rounded text-white"
-              >
-                <option value="">-- Selecione um cliente --</option>
-                {clientes.map(cliente => (
-                  <option key={cliente.id} value={cliente.id}>
-                    {cliente.nome_completo} - {cliente.telefone}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-purple-300 mb-1">Mensagem</label>
-              <textarea
-                value={mensagemForm.mensagem}
-                onChange={(e) => setMensagemForm({ ...mensagemForm, mensagem: e.target.value })}
-                placeholder="Digite a mensagem que será enviada via WhatsApp..."
-                rows={3}
-                className="w-full px-3 py-2 bg-slate-800 border border-purple-600/50 rounded text-white resize-none"
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between">
-            <p className="text-sm text-purple-400">
-              {config.webhook_url ? '✓ Webhook configurado' : '⚠ Configure o webhook primeiro'}
-            </p>
-            <button
-              onClick={enviarMensagem}
-              disabled={enviandoMensagem || !config.webhook_url}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Send className="w-4 h-4" />
-              <span>{enviandoMensagem ? 'Enviando...' : 'Enviar Mensagem'}</span>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Informações Adicionais */}
       <Card className="bg-purple-900/20 border-purple-700/50">
