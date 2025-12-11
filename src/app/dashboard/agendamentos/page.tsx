@@ -526,7 +526,12 @@ export default function AgendamentosPage() {
       }
 
       alert(`Agendamento cancelado!\n${result.data?.webhook_enviado ? '✅ Cliente notificado' : ''}`)
-      loadAgendamentos()
+
+      // Remover da lista imediatamente (sem precisar recarregar)
+      setAgendamentos(prev => prev.filter(ag => ag.id !== id))
+
+      // Também recarregar para garantir sincronização
+      setTimeout(() => loadAgendamentos(), 500)
     } catch (error) {
       console.error('Erro ao cancelar agendamento:', error)
       alert('Erro ao cancelar agendamento')
