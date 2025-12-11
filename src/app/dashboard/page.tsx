@@ -235,24 +235,24 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 md:p-6 space-y-4 md:space-y-6">
       {/* Page Title */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-white mb-2">Visão Geral</h2>
-        <p className="text-slate-400">Acompanhe as métricas principais da sua barbearia em tempo real</p>
+      <div className="mb-4 md:mb-8">
+        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">Visão Geral</h2>
+        <p className="text-sm md:text-base text-slate-400">Acompanhe as métricas principais da sua barbearia em tempo real</p>
 
         {/* Filtros de Período */}
         <div className="mt-6 space-y-4">
           {/* Botões de filtro rápido */}
           <div className="flex items-center flex-wrap gap-3">
-            <span className="text-slate-400 text-sm font-medium">Período:</span>
+            <span className="text-slate-400 text-xs md:text-sm font-medium">Período:</span>
 
             <button
               onClick={() => {
                 setTipoPeriodo('hoje')
                 setMostrarCalendario(false)
               }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
                 tipoPeriodo === 'hoje'
                   ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/50'
                   : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
@@ -266,7 +266,7 @@ export default function DashboardPage() {
                 setTipoPeriodo('semana')
                 setMostrarCalendario(false)
               }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
                 tipoPeriodo === 'semana'
                   ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/50'
                   : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
@@ -280,7 +280,7 @@ export default function DashboardPage() {
                 setTipoPeriodo('mes')
                 setMostrarCalendario(false)
               }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
                 tipoPeriodo === 'mes'
                   ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/50'
                   : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
@@ -294,7 +294,7 @@ export default function DashboardPage() {
                 setTipoPeriodo('ultimos7')
                 setMostrarCalendario(false)
               }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
                 tipoPeriodo === 'ultimos7'
                   ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/50'
                   : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
@@ -308,7 +308,7 @@ export default function DashboardPage() {
                 setTipoPeriodo('ultimos30')
                 setMostrarCalendario(false)
               }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
                 tipoPeriodo === 'ultimos30'
                   ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/50'
                   : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
@@ -324,7 +324,7 @@ export default function DashboardPage() {
                   setTipoPeriodo('personalizado')
                 }
               }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+              className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all flex items-center gap-2 ${
                 tipoPeriodo === 'personalizado'
                   ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/50'
                   : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'

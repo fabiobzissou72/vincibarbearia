@@ -59,7 +59,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Sidebar */}
-      <div className={`fixed left-0 top-0 h-full bg-slate-800/95 backdrop-blur-xl border-r border-slate-700/50 transition-all duration-300 z-50 ${sidebarOpen ? 'w-64' : 'w-16'}`}>
+      <div className={`fixed left-0 top-0 h-full bg-slate-800/95 backdrop-blur-xl border-r border-slate-700/50 transition-all duration-300 z-50 ${sidebarOpen ? 'w-64' : 'w-16'} md:block ${sidebarOpen ? 'block' : 'hidden md:block'}`}>
         <div className="p-4">
           {/* Logo */}
           <div className="flex items-center space-x-3 mb-8">
@@ -120,10 +120,10 @@ export default function DashboardLayout({
       </div>
 
       {/* Main Content */}
-      <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
+      <div className={`transition-all duration-300 ml-0 ${sidebarOpen ? 'md:ml-64' : 'md:ml-16'}`}>
         {/* Top Header */}
         <header className="bg-slate-800/50 backdrop-blur-xl border-b border-slate-700/50 sticky top-0 z-40">
-          <div className="px-6 py-4">
+          <div className="px-3 md:px-6 py-3 md:py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <button
@@ -132,7 +132,7 @@ export default function DashboardLayout({
                 >
                   <Menu className="w-5 h-5" />
                 </button>
-                <div className="relative">
+                <div className="relative hidden md:block">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
                   <input
                     type="text"
@@ -144,13 +144,13 @@ export default function DashboardLayout({
                         router.push(`/dashboard/clientes?search=${encodeURIComponent(searchQuery)}`)
                       }
                     }}
-                    className="pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-transparent w-80"
+                    className="pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-transparent w-64 lg:w-80"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center space-x-4">
-                <div className="text-sm text-slate-400">
+              <div className="flex items-center space-x-2 md:space-x-4">
+                <div className="text-sm text-slate-400 hidden lg:block">
                   {new Date().toLocaleDateString('pt-BR', {
                     weekday: 'long',
                     day: '2-digit',
@@ -158,7 +158,7 @@ export default function DashboardLayout({
                     year: 'numeric'
                   })} • {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </div>
-                <div className="flex items-center space-x-1 text-slate-400">
+                <div className="flex items-center space-x-1 text-slate-400 hidden md:flex">
                   <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                   <span className="text-sm">Online</span>
                 </div>
