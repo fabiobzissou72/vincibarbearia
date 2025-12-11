@@ -676,49 +676,50 @@ export default function AgendamentosPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 md:p-6 space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Agendamentos</h1>
-          <p className="text-purple-300">Gerencie todos os agendamentos da barbearia</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-white">Agendamentos</h1>
+          <p className="text-sm md:text-base text-purple-300">Gerencie todos os agendamentos da barbearia</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 md:space-x-3 w-full md:w-auto">
           {/* Botões de Visualização */}
-          <div className="flex bg-slate-800/50 rounded-lg p-1 border border-slate-700/50">
+          <div className="flex bg-slate-800/50 rounded-lg p-1 border border-slate-700/50 flex-1 md:flex-none">
             <button
               onClick={() => setVisualizacao('lista')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center space-x-2 ${
+              className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-1 md:space-x-2 ${
                 visualizacao === 'lista'
                   ? 'bg-purple-600 text-white shadow-lg'
                   : 'text-slate-300 hover:text-white'
               }`}
             >
               <span>📋</span>
-              <span>Lista</span>
+              <span className="hidden md:inline">Lista</span>
             </button>
             <button
               onClick={() => {
                 setVisualizacao('calendario')
                 setFiltroTemporal('todos') // Carregar todos ao abrir calendário
               }}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center space-x-2 ${
+              className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium transition-all flex items-center justify-center space-x-1 md:space-x-2 ${
                 visualizacao === 'calendario'
                   ? 'bg-purple-600 text-white shadow-lg'
                   : 'text-slate-300 hover:text-white'
               }`}
             >
               <Calendar className="w-4 h-4" />
-              <span>Calendário</span>
+              <span className="hidden md:inline">Calendário</span>
             </button>
           </div>
 
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center justify-center space-x-1 md:space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-3 md:px-4 py-2 rounded-lg transition-colors text-xs md:text-sm"
           >
             <Plus className="w-4 h-4" />
-            <span>Novo Agendamento</span>
+            <span className="hidden sm:inline">Novo</span>
+            <span className="hidden md:inline">Agendamento</span>
           </button>
         </div>
       </div>
@@ -730,11 +731,11 @@ export default function AgendamentosPage() {
             <div className="space-y-4">
               {/* Filtro Temporal */}
               <div>
-              <label className="block text-sm text-slate-400 mb-2 font-medium">Período</label>
+              <label className="block text-xs md:text-sm text-slate-400 mb-2 font-medium">Período</label>
               <div className="flex items-center flex-wrap gap-2">
                 <button
                   onClick={() => setFiltroTemporal('hoje')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
                     filtroTemporal === 'hoje'
                       ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
                       : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
@@ -745,7 +746,7 @@ export default function AgendamentosPage() {
 
                 <button
                   onClick={() => setFiltroTemporal('amanha')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
                     filtroTemporal === 'amanha'
                       ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
                       : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
@@ -756,7 +757,7 @@ export default function AgendamentosPage() {
 
                 <button
                   onClick={() => setFiltroTemporal('semana')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
                     filtroTemporal === 'semana'
                       ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
                       : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
@@ -767,7 +768,7 @@ export default function AgendamentosPage() {
 
                 <button
                   onClick={() => setFiltroTemporal('proximos7')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
                     filtroTemporal === 'proximos7'
                       ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
                       : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
@@ -778,7 +779,7 @@ export default function AgendamentosPage() {
 
                 <button
                   onClick={() => setFiltroTemporal('passados')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
                     filtroTemporal === 'passados'
                       ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
                       : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
@@ -789,7 +790,7 @@ export default function AgendamentosPage() {
 
                 <button
                   onClick={() => setFiltroTemporal('todos')}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  className={`px-3 md:px-4 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-all ${
                     filtroTemporal === 'todos'
                       ? 'bg-purple-600 text-white shadow-lg shadow-purple-500/50'
                       : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
