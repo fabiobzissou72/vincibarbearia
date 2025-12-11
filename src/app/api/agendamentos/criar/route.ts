@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-import { createCalendarEvent, formatDateTimeForGoogle, addMinutesToDateTime } from '@/lib/google-calendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -269,48 +268,6 @@ export async function POST(request: NextRequest) {
       console.error('Erro ao vincular serviços:', servicosError)
     }
 
-    // Adicionar ao Google Calendar do profissional (se configurado)
-    let googleCalendarEventId: string | null = null
-    try {
-      // Buscar id_agenda do profissional
-      const { data: profData } = await supabase
-        .from('profissionais')
-        .select('id_agenda, nome')
-        .eq('id', profissionalSelecionado.id)
-        .single()
-
-      if (profData?.id_agenda) {
-        const startTime = formatDateTimeForGoogle(dataISO, hora)
-        const endTime = addMinutesToDateTime(startTime.dateTime, duracaoTotal)
-
-        const eventSummary = `${servicos.map(s => s.nome).join(' + ')} - ${cliente_nome}`
-        const eventDescription = `Cliente: ${cliente_nome}\nTelefone: ${telefone}\nValor: R$ ${valorTotal.toFixed(2)}\nBarbeiro: ${profData.nome}${observacoes ? `\nObservações: ${observacoes}` : ''}`
-
-        const googleEvent = await createCalendarEvent(profData.id_agenda, {
-          summary: eventSummary,
-          description: eventDescription,
-          start: startTime,
-          end: endTime,
-          attendees: telefone && telefone.includes('@') ? [{ email: telefone }] : undefined
-        })
-
-        googleCalendarEventId = googleEvent.id || null
-
-        // Atualizar agendamento com ID do evento do Google
-        if (googleCalendarEventId) {
-          await supabase
-            .from('agendamentos')
-            .update({ google_calendar_event_id: googleCalendarEventId })
-            .eq('id', novoAgendamento.id)
-        }
-
-        console.log(`Evento criado no Google Calendar: ${googleCalendarEventId}`)
-      }
-    } catch (googleError) {
-      console.error('Erro ao adicionar ao Google Calendar (não bloqueante):', googleError)
-      // Não bloqueia o agendamento se Google Calendar falhar
-    }
-
     // Disparar webhook de confirmação (se configurado)
     try {
       const { data: config } = await supabase
@@ -384,9 +341,7 @@ export async function POST(request: NextRequest) {
         valor_total: valorTotal,
         duracao_total: duracaoTotal,
         servicos: servicos.map(s => ({ nome: s.nome, preco: s.preco })),
-        status: 'agendado',
-        google_calendar_sincronizado: !!googleCalendarEventId,
-        google_calendar_event_id: googleCalendarEventId
+        status: 'agendado'
       }
     }, { status: 201 })
 
