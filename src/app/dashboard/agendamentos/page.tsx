@@ -1154,7 +1154,7 @@ export default function AgendamentosPage() {
               <div className="flex items-center space-x-2">
                 <Calendar className="w-5 h-5 text-blue-400" />
                 <div>
-                  <div className="text-lg font-bold text-white">{agendamentos.length}</div>
+                  <div className="text-lg font-bold text-white">{agendamentos.filter(a => a.status !== 'cancelado').length}</div>
                   <div className="text-sm text-purple-300">Total Agendamentos</div>
                 </div>
               </div>

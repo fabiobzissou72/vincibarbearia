@@ -183,8 +183,11 @@ export default function DashboardPage() {
         ? receitaPeriodo / agendamentosConcluidosPeriodo.length
         : 0
 
+      // Contar apenas agendamentos não cancelados
+      const agendamentosNaoCancelados = agendamentosPeriodo?.filter(a => a.status !== 'cancelado').length || 0
+
       setStats({
-        agendamentosHoje: agendamentosPeriodo?.length || 0,
+        agendamentosHoje: agendamentosNaoCancelados,
         ocupacaoMedia: ocupacaoMedia,
         receitaHoje: receitaPeriodo,
         ticketMedio: ticketMedio,
