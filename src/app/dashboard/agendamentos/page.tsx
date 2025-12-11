@@ -84,6 +84,16 @@ export default function AgendamentosPage() {
     loadServicos()
   }, [filtroTemporal, filtroStatus, dataPersonalizada])
 
+  // Atualização automática a cada 10 segundos
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('Atualizando agendamentos automaticamente...')
+      loadAgendamentos()
+    }, 10000) // 10 segundos
+
+    return () => clearInterval(interval)
+  }, [filtroTemporal, filtroStatus, dataPersonalizada])
+
   const loadProfissionais = async () => {
     const { data } = await supabase
       .from('profissionais')
