@@ -108,8 +108,7 @@ export async function POST(request: NextRequest) {
       .from('agendamentos')
       .update({
         status: 'cancelado',
-        motivo_cancelamento: `Cancelado pelo barbeiro ${barbeiro.nome} via WhatsApp`,
-        data_cancelamento: new Date().toISOString()
+        observacoes: `${agendamento.observacoes ? agendamento.observacoes + '\n\n' : ''}CANCELADO: Cancelado pelo barbeiro ${barbeiro.nome} via WhatsApp em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`
       })
       .eq('id', agendamento.id)
 

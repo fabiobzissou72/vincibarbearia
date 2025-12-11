@@ -1167,7 +1167,7 @@ export default function AgendamentosPage() {
                 <DollarSign className="w-5 h-5 text-green-400" />
                 <div>
                   <div className="text-lg font-bold text-white">
-                    {formatCurrency(agendamentos.reduce((sum, a) => sum + a.valor, 0))}
+                    {formatCurrency(agendamentos.filter(a => a.status !== 'cancelado').reduce((sum, a) => sum + a.valor, 0))}
                   </div>
                   <div className="text-sm text-purple-300">Receita</div>
                 </div>
@@ -1181,7 +1181,7 @@ export default function AgendamentosPage() {
                 <Clock className="w-5 h-5 text-yellow-400" />
                 <div>
                   <div className="text-lg font-bold text-white">
-                    {agendamentos.reduce((sum, a) => sum + (a.servicos?.duracao_minutos || 30), 0)}min
+                    {agendamentos.filter(a => a.status !== 'cancelado').reduce((sum, a) => sum + (a.servicos?.duracao_minutos || 30), 0)}min
                   </div>
                   <div className="text-sm text-purple-300">Tempo Total</div>
                 </div>
@@ -1195,7 +1195,7 @@ export default function AgendamentosPage() {
                 <User className="w-5 h-5 text-purple-400" />
                 <div>
                   <div className="text-lg font-bold text-white">
-                    {new Set(agendamentos.map(a => a.nome_cliente)).size}
+                    {new Set(agendamentos.filter(a => a.status !== 'cancelado').map(a => a.nome_cliente)).size}
                   </div>
                   <div className="text-sm text-purple-300">Clientes Únicos</div>
                 </div>

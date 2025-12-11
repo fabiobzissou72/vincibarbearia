@@ -202,8 +202,8 @@ export default function RelatoriosPage() {
     }
   }
 
-  // Filtrar apenas agendamentos onde cliente COMPARECEU (ou não foi marcado ainda)
-  const agendamentosComparecidos = data.agendamentos.filter(a => a.compareceu !== false)
+  // Filtrar apenas agendamentos CONCLUÍDOS (só conta como faturamento se foi concluído)
+  const agendamentosComparecidos = data.agendamentos.filter(a => a.status === 'concluido')
 
   // Cálculos
   const totalAgendamentos = agendamentosComparecidos.length

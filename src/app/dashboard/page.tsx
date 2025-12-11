@@ -94,8 +94,8 @@ export default function DashboardPage() {
         return dataISO >= dataInicialCalc && dataISO <= dataFinalCalc
       }) || []
 
-      // Receita do período
-      const receitaPeriodo = agendamentosPeriodo?.reduce((sum, agendamento) =>
+      // Receita do período (apenas agendamentos concluídos)
+      const receitaPeriodo = agendamentosPeriodo?.filter(a => a.status === 'concluido').reduce((sum, agendamento) =>
         sum + (Number(agendamento.valor) || 0), 0) || 0
 
       // Clientes ativos (últimos 30 dias)
@@ -120,6 +120,7 @@ export default function DashboardPage() {
           servicos (nome)
         `)
         .gte('data_criacao', dataLimite7.toISOString())
+        .eq('status', 'concluido')
 
       const receitaPorServico: { [key: string]: number } = {}
       agendamentosServicos?.forEach(agendamento => {
@@ -141,9 +142,10 @@ export default function DashboardPage() {
         profissionais?.map(async (prof) => {
           const { data: agendamentosProfissional } = await supabase
             .from('agendamentos')
-            .select('valor')
+            .select('valor, status')
             .eq('profissional_id', prof.id)
             .gte('data_criacao', dataLimite7.toISOString())
+            .eq('status', 'concluido')
 
           const agendamentos = agendamentosProfissional?.length || 0
           const receita = agendamentosProfissional?.reduce((sum, a) => sum + (Number(a.valor) || 0), 0) || 0
