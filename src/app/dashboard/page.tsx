@@ -98,7 +98,7 @@ export default function DashboardPage() {
       const receitaPeriodo = agendamentosPeriodo?.filter(a => a.status === 'concluido').reduce((sum, agendamento) =>
         sum + (Number(agendamento.valor) || 0), 0) || 0
 
-      // Clientes ativos (últimos 30 dias)
+      // Clientes ativos (últimos 30 dias, apenas concluídos)
       const dataLimite = new Date()
       dataLimite.setDate(dataLimite.getDate() - 30)
 
@@ -106,6 +106,7 @@ export default function DashboardPage() {
         .from('agendamentos')
         .select('cliente_id')
         .gte('data_criacao', dataLimite.toISOString())
+        .eq('status', 'concluido')
 
       const clientesUnicos = new Set(clientesAtivos?.map(a => a.cliente_id)).size
 
@@ -160,73 +161,61 @@ export default function DashboardPage() {
         }) || []
       )
 
-      // Ocupação por horário (simulado baseado no screenshot)
-      const ocupacaoPorHorario = [
-        { horario: '08:00', ocupacao: 45 },
-        { horario: '09:00', ocupacao: 67 },
-        { horario: '10:00', ocupacao: 89 },
-        { horario: '11:00', ocupacao: 92 },
-        { horario: '12:00', ocupacao: 30 },
-        { horario: '13:00', ocupacao: 25 },
-        { horario: '14:00', ocupacao: 95 },
-        { horario: '15:00', ocupacao: 90 },
-        { horario: '16:00', ocupacao: 88 },
-        { horario: '17:00', ocupacao: 76 },
-        { horario: '18:00', ocupacao: 45 },
-      ]
+      // Calcular ocupação média real baseada nos agendamentos do período
+      const totalHorasDisponiveis = profissionais?.length ? profissionais.length * 10 : 1 // 10 horas por dia por profissional
+      const horasOcupadas = agendamentosPeriodo?.filter(a => a.status !== 'cancelado').reduce((sum, a) =>
+        sum + (Number(a.duracao) || 30), 0) || 0
+      const ocupacaoMedia = totalHorasDisponiveis > 0 ? Math.round((horasOcupadas / 60) / totalHorasDisponiveis * 100) : 0
+
+      // Ocupação por horário (calculado com base nos agendamentos reais)
+      const horariosPadrao = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00']
+      const ocupacaoPorHorario = horariosPadrao.map(horario => {
+        const agendamentosHorario = agendamentosPeriodo?.filter(a =>
+          a.hora_inicio === horario && a.status !== 'cancelado'
+        ).length || 0
+        const ocupacao = profissionais?.length ? Math.round((agendamentosHorario / profissionais.length) * 100) : 0
+        return { horario, ocupacao: Math.min(ocupacao, 100) }
+      })
+
+      // Calcular ticket médio correto
+      const agendamentosConcluidosPeriodo = agendamentosPeriodo?.filter(a => a.status === 'concluido') || []
+      const ticketMedio = agendamentosConcluidosPeriodo.length > 0
+        ? receitaPeriodo / agendamentosConcluidosPeriodo.length
+        : 0
 
       setStats({
-        agendamentosHoje: agendamentosPeriodo?.length || 24,
-        ocupacaoMedia: 85,
-        receitaHoje: receitaPeriodo || 1280,
-        ticketMedio: agendamentosPeriodo?.length ? receitaPeriodo / agendamentosPeriodo.length : 58,
-        clientesAtivos: clientesUnicos || 156,
-        receitaPorServico: receitaServicosSorted.length ? receitaServicosSorted : [
-          { nome: 'Corte Masculino', valor: 4800 },
-          { nome: 'Combo Premium', valor: 3200 },
-          { nome: 'Barba Completa', valor: 2400 },
-          { nome: 'Sobrancelha', valor: 1600 }
-        ],
-        rankingProfissionais: rankingProfissionais.sort((a, b) => b.receita - a.receita).length ?
-          rankingProfissionais.sort((a, b) => b.receita - a.receita) : [
-          { nome: 'João Silva', agendamentos: 12, receita: 840, ocupacao: 85 },
-          { nome: 'Carlos Santos', agendamentos: 8, receita: 440, ocupacao: 78 },
-          { nome: 'Miguel Costa', agendamentos: 6, receita: 280, ocupacao: 92 }
-        ],
+        agendamentosHoje: agendamentosPeriodo?.length || 0,
+        ocupacaoMedia: ocupacaoMedia,
+        receitaHoje: receitaPeriodo,
+        ticketMedio: ticketMedio,
+        clientesAtivos: clientesUnicos,
+        receitaPorServico: receitaServicosSorted,
+        rankingProfissionais: rankingProfissionais.sort((a, b) => b.receita - a.receita),
         ocupacaoPorHorario
       })
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
-      // Dados simulados se der erro
+      // Se der erro, mostrar valores zerados ao invés de dados simulados
       setStats({
-        agendamentosHoje: 24,
-        ocupacaoMedia: 85,
-        receitaHoje: 1280,
-        ticketMedio: 58,
-        clientesAtivos: 156,
-        receitaPorServico: [
-          { nome: 'Corte Masculino', valor: 4800 },
-          { nome: 'Combo Premium', valor: 3200 },
-          { nome: 'Barba Completa', valor: 2400 },
-          { nome: 'Sobrancelha', valor: 1600 }
-        ],
-        rankingProfissionais: [
-          { nome: 'João Silva', agendamentos: 12, receita: 840, ocupacao: 85 },
-          { nome: 'Carlos Santos', agendamentos: 8, receita: 440, ocupacao: 78 },
-          { nome: 'Miguel Costa', agendamentos: 6, receita: 280, ocupacao: 92 }
-        ],
+        agendamentosHoje: 0,
+        ocupacaoMedia: 0,
+        receitaHoje: 0,
+        ticketMedio: 0,
+        clientesAtivos: 0,
+        receitaPorServico: [],
+        rankingProfissionais: [],
         ocupacaoPorHorario: [
-          { horario: '08:00', ocupacao: 45 },
-          { horario: '09:00', ocupacao: 67 },
-          { horario: '10:00', ocupacao: 89 },
-          { horario: '11:00', ocupacao: 92 },
-          { horario: '12:00', ocupacao: 30 },
-          { horario: '13:00', ocupacao: 25 },
-          { horario: '14:00', ocupacao: 95 },
-          { horario: '15:00', ocupacao: 90 },
-          { horario: '16:00', ocupacao: 88 },
-          { horario: '17:00', ocupacao: 76 },
-          { horario: '18:00', ocupacao: 45 }
+          { horario: '08:00', ocupacao: 0 },
+          { horario: '09:00', ocupacao: 0 },
+          { horario: '10:00', ocupacao: 0 },
+          { horario: '11:00', ocupacao: 0 },
+          { horario: '12:00', ocupacao: 0 },
+          { horario: '13:00', ocupacao: 0 },
+          { horario: '14:00', ocupacao: 0 },
+          { horario: '15:00', ocupacao: 0 },
+          { horario: '16:00', ocupacao: 0 },
+          { horario: '17:00', ocupacao: 0 },
+          { horario: '18:00', ocupacao: 0 }
         ]
       })
     } finally {
