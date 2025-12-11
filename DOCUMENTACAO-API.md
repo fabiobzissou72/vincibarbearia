@@ -516,16 +516,11 @@ POST https://seu-dominio.vercel.app/api/barbeiros/cancelar-meu-agendamento
 
 ## 6. APIs de Cron/Automação
 
-### 6.1. Lembretes Automáticos
+### 6.1. Lembretes Automáticos (SIMPLES - N8N)
 
-**Endpoint:** `GET /api/cron/lembretes`
+**Endpoint:** `GET /api/lembretes`
 
-**Descrição:** Endpoint para cron job enviar lembretes automáticos.
-
-**Headers:**
-```
-Authorization: Bearer SEU_TOKEN_SECRETO
-```
+**Descrição:** API SIMPLES para N8N buscar agendamentos e enviar lembretes. **SEM AUTENTICAÇÃO NECESSÁRIA**.
 
 **Query Parameters:**
 ```
@@ -533,30 +528,73 @@ Authorization: Bearer SEU_TOKEN_SECRETO
 ```
 
 **Parâmetros:**
-- `tipo`: `amanha`, `hoje`, `1hora`
+- `tipo` (obrigatório):
+  - `amanha` - Agendamentos de amanhã (lembrete 24h antes)
+  - `hoje` - Agendamentos de hoje (lembrete no dia)
+  - `1hora` - Agendamentos daqui 1 hora
 
 **Resposta Sucesso (200):**
 ```json
 {
   "success": true,
-  "lembretes_enviados": 5,
-  "detalhes": [
+  "tipo": "amanha",
+  "data_busca": "12/12/2025",
+  "total": 3,
+  "lembretes": [
     {
       "cliente": "João Silva",
       "telefone": "11999999999",
       "data": "12/12/2025",
       "hora": "09:00",
-      "barbeiro": "Hiago"
+      "barbeiro": "Hiago",
+      "servico": "Corte Masculino",
+      "valor": "70.00"
+    },
+    {
+      "cliente": "Maria Santos",
+      "telefone": "11988888888",
+      "data": "12/12/2025",
+      "hora": "10:00",
+      "barbeiro": "Carlos",
+      "servico": "Barba Completa",
+      "valor": "50.00"
     }
   ]
 }
 ```
 
+**Exemplo de Uso:**
+```bash
+# Buscar lembretes de amanhã
+curl https://vincibarbearia.vercel.app/api/lembretes?tipo=amanha
+
+# Buscar lembretes de hoje
+curl https://vincibarbearia.vercel.app/api/lembretes?tipo=hoje
+
+# Buscar lembretes de 1 hora antes
+curl https://vincibarbearia.vercel.app/api/lembretes?tipo=1hora
+```
+
 **Configuração N8N Cron:**
 ```
-Schedule: 0 9 * * * (todo dia às 9h)
-URL: GET https://seu-dominio.vercel.app/api/cron/lembretes?tipo=amanha
-Headers: Authorization: Bearer SEU_TOKEN
+Schedule: 0 18 * * * (todo dia às 18h para "amanha")
+URL: GET https://vincibarbearia.vercel.app/api/lembretes?tipo=amanha
+Authentication: None (sem autenticação)
+```
+
+---
+
+### 6.2. Lembretes Avançados (Webhook)
+
+**Endpoint:** `GET /api/cron/lembretes`
+
+**Descrição:** Endpoint avançado com webhook automático. Requer autenticação e configuração de webhook.
+
+**⚠️ NOTA:** Use `/api/lembretes` (simples) para N8N. Esta API é para Vercel Cron com webhook.
+
+**Headers:**
+```
+Authorization: Bearer SEU_TOKEN_SECRETO
 ```
 
 ---
@@ -668,7 +706,87 @@ Query: barbeiro_nome={{$node["WhatsApp Trigger"].json["nome"]}}&periodo=hoje
 
 ---
 
-### 8.5. Fluxo Completo N8N - Barbeiro via WhatsApp
+### 8.5. Fluxo Completo N8N - Lembretes Automáticos
+
+**WORKFLOW 1: Lembrete de Amanhã (18h)**
+
+```
+[Schedule Trigger]      →  [HTTP Request]        →  [Loop]           →  [WhatsApp]
+0 18 * * *                 GET /api/lembretes       Para cada item      Envia mensagem
+(Todo dia 18h)             ?tipo=amanha             do array lembretes  individual
+```
+
+**Passo a passo no N8N:**
+
+1. **Schedule Trigger:**
+   - Cron: `0 18 * * *`
+   - Timezone: `America/Sao_Paulo`
+
+2. **HTTP Request:**
+   - Method: `GET`
+   - URL: `https://vincibarbearia.vercel.app/api/lembretes?tipo=amanha`
+   - Authentication: `None`
+
+3. **Loop Over Items:**
+   - Field: `{{$json.lembretes}}`
+
+4. **WhatsApp - Send Message:**
+   - Phone: `{{$item.telefone}}`
+   - Message:
+   ```
+   📅 *Lembrete de Agendamento*
+
+   Olá {{$item.cliente}}!
+
+   Você tem um agendamento AMANHÃ:
+
+   📆 Data: {{$item.data}}
+   🕐 Hora: {{$item.hora}}
+   💈 Barbeiro: {{$item.barbeiro}}
+   ✂️ Serviço: {{$item.servico}}
+   💵 Valor: R$ {{$item.valor}}
+
+   📍 Vinci Barbearia
+
+   Se não puder comparecer, por favor,
+   avise com antecedência!
+
+   Aguardamos você! 💈
+   ```
+
+---
+
+**WORKFLOW 2: Lembrete de Hoje (8h)**
+
+```
+[Schedule Trigger]      →  [HTTP Request]        →  [Loop]           →  [WhatsApp]
+0 8 * * *                  GET /api/lembretes       Para cada item      Envia mensagem
+(Todo dia 8h)              ?tipo=hoje               do array lembretes  individual
+```
+
+Mesma configuração, apenas mude:
+- Cron: `0 8 * * *`
+- URL: `?tipo=hoje`
+- Mensagem: "Você tem agendamento **HOJE**"
+
+---
+
+**WORKFLOW 3: Lembrete 1 Hora Antes (a cada hora)**
+
+```
+[Schedule Trigger]      →  [HTTP Request]        →  [Loop]           →  [WhatsApp]
+0 * * * *                  GET /api/lembretes       Para cada item      Envia mensagem
+(Toda hora)                ?tipo=1hora              do array lembretes  individual
+```
+
+Mesma configuração, apenas mude:
+- Cron: `0 * * * *` (executa toda hora)
+- URL: `?tipo=1hora`
+- Mensagem: "Seu agendamento é **DAQUI 1 HORA**"
+
+---
+
+### 8.6. Fluxo Completo N8N - Barbeiro via WhatsApp
 
 ```mermaid
 graph TD
