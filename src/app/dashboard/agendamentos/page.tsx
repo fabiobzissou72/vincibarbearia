@@ -975,9 +975,21 @@ export default function AgendamentosPage() {
                         </div>
                       ))}
                       {agendsDoDia.length > 3 && (
-                        <div className="text-xs text-slate-400 text-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // Abrir modal com todos os agendamentos do dia
+                            setDetalhesAgendamento({
+                              ...agendsDoDia[0],
+                              // Flag especial para mostrar todos do dia
+                              _mostrarTodosDia: true,
+                              _agendamentosDia: agendsDoDia
+                            } as any)
+                          }}
+                          className="text-xs text-purple-400 hover:text-purple-300 text-center w-full py-1 hover:bg-slate-600/30 rounded transition-colors cursor-pointer"
+                        >
                           +{agendsDoDia.length - 3} mais
-                        </div>
+                        </button>
                       )}
                     </div>
                   </div>
@@ -1196,12 +1208,19 @@ export default function AgendamentosPage() {
       {/* Popup de Detalhes do Agendamento */}
       {detalhesAgendamento && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setDetalhesAgendamento(null)}>
-          <div className="bg-slate-800 rounded-lg p-6 max-w-2xl w-full border border-purple-500/50 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-slate-800 rounded-lg p-6 max-w-4xl w-full border border-purple-500/50 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-white mb-1">Detalhes do Agendamento</h2>
-                <p className="text-sm text-slate-400">ID: {detalhesAgendamento.id.slice(0, 8)}...</p>
+                <h2 className="text-2xl font-bold text-white mb-1">
+                  {(detalhesAgendamento as any)._mostrarTodosDia
+                    ? `Agendamentos do dia ${convertISOtoBR(detalhesAgendamento.data_agendamento)}`
+                    : 'Detalhes do Agendamento'
+                  }
+                </h2>
+                {!(detalhesAgendamento as any)._mostrarTodosDia && (
+                  <p className="text-sm text-slate-400">ID: {detalhesAgendamento.id.slice(0, 8)}...</p>
+                )}
               </div>
               <button
                 onClick={() => setDetalhesAgendamento(null)}
@@ -1210,6 +1229,39 @@ export default function AgendamentosPage() {
                 ×
               </button>
             </div>
+
+            {/* Se for mostrar todos do dia */}
+            {(detalhesAgendamento as any)._mostrarTodosDia ? (
+              <div className="space-y-3">
+                {((detalhesAgendamento as any)._agendamentosDia || []).map((ag: Agendamento) => (
+                  <div
+                    key={ag.id}
+                    onClick={() => setDetalhesAgendamento(ag)}
+                    className="bg-slate-700/30 hover:bg-slate-700/50 rounded-lg p-4 cursor-pointer transition-colors border border-slate-600/30 hover:border-purple-500/50"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-white">{formatTime(ag.hora_inicio)}</div>
+                          <div className={`w-3 h-3 rounded-full mx-auto mt-1 ${getStatusColor(ag.status)}`}></div>
+                        </div>
+                        <div>
+                          <div className="font-medium text-white">{ag.nome_cliente}</div>
+                          <div className="text-sm text-purple-300">✂️ {ag.profissionais?.nome || 'Não definido'}</div>
+                          <div className="text-sm text-slate-400">{ag.telefone}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-green-400 font-medium">{formatCurrency(ag.valor)}</div>
+                        <div className="text-xs text-slate-400 capitalize">{ag.status.replace('_', ' ')}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              // Modal normal de detalhes de um agendamento
+              <div>
 
             <div className="space-y-6">
               {/* Status e Data */}
@@ -1349,6 +1401,8 @@ export default function AgendamentosPage() {
                 </button>
               </div>
             </div>
+            </div>
+            )}
           </div>
         </div>
       )}
