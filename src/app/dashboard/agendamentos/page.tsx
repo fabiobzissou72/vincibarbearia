@@ -48,17 +48,26 @@ type FiltroStatus = 'todos' | 'agendado' | 'confirmado' | 'em_andamento' | 'conc
 type VisualizacaoMode = 'lista' | 'calendario'
 
 export default function AgendamentosPage() {
+  // Função auxiliar para obter data no timezone de Brasília
+  const getDataBrasilia = () => {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
+  }
+
+  const getDataBrasiliaISO = () => {
+    return getDataBrasilia().toISOString().split('T')[0]
+  }
+
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [selectedDate, setSelectedDate] = useState(getDataBrasiliaISO())
   const [filtroTemporal, setFiltroTemporal] = useState<FiltroTemporal>('hoje')
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos')
   const [dataPersonalizada, setDataPersonalizada] = useState('')
   const [editingAgendamento, setEditingAgendamento] = useState<Agendamento | null>(null)
   const [detalhesAgendamento, setDetalhesAgendamento] = useState<Agendamento | null>(null)
   const [visualizacao, setVisualizacao] = useState<VisualizacaoMode>('lista')
-  const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [currentMonth, setCurrentMonth] = useState(getDataBrasilia())
   const [profissionais, setProfissionais] = useState<Profissional[]>([])
   const [servicos, setServicos] = useState<Servico[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -71,7 +80,7 @@ export default function AgendamentosPage() {
     telefone: '',
     observacoes: '',
     status: 'agendado',
-    data_agendamento: new Date().toISOString().split('T')[0],
+    data_agendamento: getDataBrasiliaISO(),
     hora_inicio: '',
     profissional_id: '',
     servico_ids: [] as string[],
@@ -316,8 +325,12 @@ export default function AgendamentosPage() {
         .order('hora_inicio')
 
       // Calcular datas baseado no filtro temporal
-      const hoje = new Date()
-      const hojeStr = hoje.toISOString().split('T')[0]
+      // IMPORTANTE: Usar timezone de Brasília (America/Sao_Paulo)
+      const hoje = getDataBrasilia()
+      const hojeStr = getDataBrasiliaISO()
+
+      console.log('🕐 Data atual (Brasília):', hoje.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }))
+      console.log('🕐 Data string (YYYY-MM-DD):', hojeStr)
 
       let dataFiltro = ''
 
@@ -325,6 +338,7 @@ export default function AgendamentosPage() {
         case 'hoje':
           const [yearH, monthH, dayH] = hojeStr.split('-')
           dataFiltro = `${dayH}/${monthH}/${yearH}`
+          console.log('📅 Filtrando por HOJE:', dataFiltro)
           query = query.eq('data_agendamento', dataFiltro)
           break
 
@@ -334,6 +348,7 @@ export default function AgendamentosPage() {
           const amanhaStr = amanha.toISOString().split('T')[0]
           const [yearA, monthA, dayA] = amanhaStr.split('-')
           dataFiltro = `${dayA}/${monthA}/${yearA}`
+          console.log('📅 Filtrando por AMANHÃ:', dataFiltro)
           query = query.eq('data_agendamento', dataFiltro)
           break
 
@@ -358,6 +373,7 @@ export default function AgendamentosPage() {
           if (dataPersonalizada) {
             const [yearP, monthP, dayP] = dataPersonalizada.split('-')
             dataFiltro = `${dayP}/${monthP}/${yearP}`
+            console.log('📅 Filtrando por DATA PERSONALIZADA:', dataFiltro)
             query = query.eq('data_agendamento', dataFiltro)
           }
           break
@@ -625,7 +641,7 @@ export default function AgendamentosPage() {
         telefone: '',
         observacoes: '',
         status: 'agendado',
-        data_agendamento: new Date().toISOString().split('T')[0],
+        data_agendamento: getDataBrasiliaISO(),
         hora_inicio: '',
         profissional_id: '',
         servico_ids: [],
@@ -1655,7 +1671,7 @@ export default function AgendamentosPage() {
                     telefone: '',
                     observacoes: '',
                     status: 'agendado',
-                    data_agendamento: new Date().toISOString().split('T')[0],
+                    data_agendamento: getDataBrasiliaISO(),
                     hora_inicio: '',
                     profissional_id: '',
                     servico_ids: [],
