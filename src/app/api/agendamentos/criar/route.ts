@@ -140,38 +140,66 @@ export async function POST(request: NextRequest) {
       profissionalSelecionado = prof
     } else {
       // RODÍZIO AUTOMÁTICO: Buscar barbeiro com menos agendamentos do dia
-      const { data: rodizio, error: rodizioError } = await supabase
-        .from('v_rodizio_atual')
+      console.log('🔄 Iniciando rodízio automático...')
+
+      // Primeiro, buscar TODOS os barbeiros ativos
+      const { data: todosBarbeiros } = await supabase
+        .from('profissionais')
         .select('*')
-        .order('total_atendimentos_hoje', { ascending: true })
-        .order('ultima_vez', { ascending: true, nullsFirst: true })
-        .limit(1)
-        .single()
+        .eq('ativo', true)
 
-      if (rodizioError || !rodizio) {
-        // Fallback: Buscar qualquer barbeiro ativo
-        const { data: profs } = await supabase
-          .from('profissionais')
-          .select('*')
-          .eq('ativo', true)
-          .limit(1)
-          .single()
+      console.log('👥 Barbeiros ativos:', todosBarbeiros?.map(b => b.nome).join(', '))
 
-        if (!profs) {
-          return NextResponse.json({
-            success: false,
-            message: 'Nenhum barbeiro disponível',
-            errors: ['Sistema de rodízio não configurado']
-          }, { status: 500 })
+      // Buscar agendamentos de HOJE para cada barbeiro
+      const hoje = dataBR // Data já formatada em DD/MM/YYYY
+      console.log('📅 Buscando agendamentos de:', hoje)
+
+      const { data: agendamentosHoje } = await supabase
+        .from('agendamentos')
+        .select('profissional_id, profissionais(nome)')
+        .eq('data_agendamento', hoje)
+        .in('status', ['agendado', 'confirmado', 'em_andamento'])
+
+      console.log('📊 Agendamentos hoje:', agendamentosHoje)
+
+      // Contar agendamentos por barbeiro
+      const contagemPorBarbeiro: { [key: string]: number } = {}
+      todosBarbeiros?.forEach(barbeiro => {
+        contagemPorBarbeiro[barbeiro.id] = 0
+      })
+
+      agendamentosHoje?.forEach(ag => {
+        if (contagemPorBarbeiro[ag.profissional_id] !== undefined) {
+          contagemPorBarbeiro[ag.profissional_id]++
         }
+      })
 
-        profissionalSelecionado = profs
-      } else {
-        profissionalSelecionado = {
-          id: rodizio.profissional_id,
-          nome: rodizio.profissional_nome
+      console.log('🔢 Contagem de agendamentos por barbeiro:', contagemPorBarbeiro)
+
+      // Encontrar barbeiro com MENOS agendamentos
+      let barbeiroEscolhido = todosBarbeiros?.[0]
+      let menorContagem = Infinity
+
+      todosBarbeiros?.forEach(barbeiro => {
+        const contagem = contagemPorBarbeiro[barbeiro.id] || 0
+        console.log(`  ${barbeiro.nome}: ${contagem} agendamentos`)
+
+        if (contagem < menorContagem) {
+          menorContagem = contagem
+          barbeiroEscolhido = barbeiro
         }
+      })
+
+      if (!barbeiroEscolhido) {
+        return NextResponse.json({
+          success: false,
+          message: 'Nenhum barbeiro disponível',
+          errors: ['Sistema de rodízio não configurado']
+        }, { status: 500 })
       }
+
+      console.log(`✅ Barbeiro escolhido: ${barbeiroEscolhido.nome} (${menorContagem} agendamentos hoje)`)
+      profissionalSelecionado = barbeiroEscolhido
     }
 
     // Verificar conflito de horário
