@@ -82,9 +82,20 @@ export async function POST(request: NextRequest) {
     const duracaoTotal = servicos.reduce((sum, s) => sum + (s.duracao_minutos || 30), 0)
     const valorTotal = servicos.reduce((sum, s) => sum + (parseFloat(s.preco) || 0), 0)
 
-    // Converter data de YYYY-MM-DD (input) para DD/MM/YYYY (banco de dados)
-    const [year, month, day] = data.split('-')
-    const dataBR = `${day}/${month}/${year}`  // Formato brasileiro para o banco
+    // Converter data para formato brasileiro DD/MM/YYYY
+    // Aceita: DD-MM-YYYY (11-12-2025) OU YYYY-MM-DD (2025-12-11)
+    let dataBR: string
+    const partes = data.split('-')
+
+    if (partes[0].length === 4) {
+      // Formato YYYY-MM-DD (ex: 2025-12-11)
+      const [year, month, day] = partes
+      dataBR = `${day}/${month}/${year}`
+    } else {
+      // Formato DD-MM-YYYY (ex: 11-12-2025)
+      const [day, month, year] = partes
+      dataBR = `${day}/${month}/${year}`
+    }
 
     // Determinar qual barbeiro vai atender
     let profissionalSelecionado: any = null

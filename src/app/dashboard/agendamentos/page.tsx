@@ -280,8 +280,7 @@ export default function AgendamentosPage() {
     const dataBR = `${day}/${month}/${year}`
 
     // Filtrar agendamentos que correspondem à data
-    // Suporta tanto formato DD/MM/YYYY quanto YYYY-MM-DD
-    return agendamentos.filter(ag => {
+    const agendsDoDia = agendamentos.filter(ag => {
       const dataAg = ag.data_agendamento
 
       // Se já está em formato DD/MM/YYYY
@@ -296,6 +295,13 @@ export default function AgendamentosPage() {
 
       return false
     })
+
+    // Log para debug
+    if (agendsDoDia.length > 0) {
+      console.log(`📅 Dia ${dataBR}: ${agendsDoDia.length} agendamento(s)`, agendsDoDia)
+    }
+
+    return agendsDoDia
   }
 
   const loadAgendamentos = async () => {
@@ -424,6 +430,13 @@ export default function AgendamentosPage() {
       }
 
       console.log('Agendamentos carregados:', agendamentosFiltrados)
+
+      // Debug: mostrar formato da primeira data
+      if (agendamentosFiltrados.length > 0) {
+        console.log('🔍 Formato da data do primeiro agendamento:', agendamentosFiltrados[0].data_agendamento)
+        console.log('🔍 Tipo:', typeof agendamentosFiltrados[0].data_agendamento)
+      }
+
       setAgendamentos(agendamentosFiltrados)
     } catch (error) {
       console.error('Erro ao carregar agendamentos:', error)
