@@ -1001,51 +1001,88 @@ export default function AgendamentosPage() {
               )}
             </div>
 
-            {/* Visualização do Dia */}
+            {/* Visualização do Dia - Formato Grade de Horários */}
             {calendarioMode === 'dia' && (
-              <div className="space-y-3">
-                {getAgendamentosPorData(selectedCalendarDate).length === 0 ? (
-                  <div className="text-center py-12 text-purple-300">
+              <div className="space-y-0">
+                {/* Gerar todos os horários do dia (8h às 20h) */}
+                {Array.from({ length: 13 }, (_, i) => {
+                  const hora = 8 + i // 8h às 20h
+                  const horaStr = `${hora.toString().padStart(2, '0')}:00`
+
+                  // Buscar agendamentos para este horário
+                  const agendsDaHora = getAgendamentosPorData(selectedCalendarDate)
+                    .filter(ag => ag.hora_inicio.startsWith(horaStr.split(':')[0]))
+                    .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))
+
+                  return (
+                    <div key={horaStr} className="flex border-b border-slate-700/50">
+                      {/* Coluna do Horário */}
+                      <div className="w-20 flex-shrink-0 py-4 px-3 text-slate-400 text-sm font-medium">
+                        {horaStr}
+                      </div>
+
+                      {/* Coluna dos Agendamentos */}
+                      <div className="flex-1 py-2 min-h-[60px]">
+                        {agendsDaHora.length === 0 ? (
+                          // Horário vazio
+                          <div className="h-full"></div>
+                        ) : (
+                          // Agendamentos neste horário
+                          <div className="space-y-2">
+                            {agendsDaHora.map(ag => (
+                              <div
+                                key={ag.id}
+                                onClick={() => setDetalhesAgendamento(ag)}
+                                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 rounded-lg p-3 cursor-pointer transition-all shadow-lg border border-purple-500/50"
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-white font-bold text-sm">
+                                        {ag.hora_inicio}
+                                      </span>
+                                      <span className="text-white font-medium">
+                                        {ag.nome_cliente}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-purple-100">
+                                      <User className="w-3 h-3" />
+                                      <span>{ag.profissionais?.nome || 'Não definido'}</span>
+                                    </div>
+                                    {ag.agendamento_servicos && ag.agendamento_servicos.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                        {ag.agendamento_servicos.map((as, idx) => (
+                                          <span key={idx} className="bg-white/20 px-2 py-0.5 rounded text-xs text-white">
+                                            {as.servicos.nome}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-white font-bold text-sm">
+                                      {formatCurrency(ag.valor)}
+                                    </div>
+                                    <div className="text-xs text-purple-200 capitalize mt-1">
+                                      {ag.agendamento_servicos?.[0]?.servicos?.duracao_minutos || 30}min
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* Mensagem se não houver nenhum agendamento no dia todo */}
+                {getAgendamentosPorData(selectedCalendarDate).length === 0 && (
+                  <div className="text-center py-8 text-purple-300">
                     <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>Nenhum agendamento para este dia</p>
                   </div>
-                ) : (
-                  getAgendamentosPorData(selectedCalendarDate)
-                    .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))
-                    .map(ag => (
-                      <div
-                        key={ag.id}
-                        onClick={() => setDetalhesAgendamento(ag)}
-                        className="bg-purple-700/30 hover:bg-purple-700/50 rounded-lg p-4 cursor-pointer transition-all border border-purple-600/30 hover:border-purple-500"
-                      >
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-4 flex-1">
-                            <div className="text-center">
-                              <div className="text-2xl font-bold text-white">{formatTime(ag.hora_inicio)}</div>
-                              <div className={`w-3 h-3 rounded-full mx-auto mt-1 ${getStatusColor(ag.status)}`}></div>
-                            </div>
-                            <div className="flex-1">
-                              <div className="font-medium text-white text-lg">{ag.nome_cliente}</div>
-                              <div className="text-sm text-purple-300">✂️ {ag.profissionais?.nome || 'Não definido'}</div>
-                              <div className="text-sm text-slate-400">{ag.telefone}</div>
-                              {ag.agendamento_servicos && ag.agendamento_servicos.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {ag.agendamento_servicos.map((as, idx) => (
-                                    <span key={idx} className="bg-purple-600/30 px-2 py-0.5 rounded text-xs text-purple-200">
-                                      {as.servicos.nome}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-green-400 font-bold text-lg">{formatCurrency(ag.valor)}</div>
-                            <div className="text-xs text-slate-400 capitalize">{ag.status.replace('_', ' ')}</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))
                 )}
               </div>
             )}
