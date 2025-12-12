@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
         categoria: categoria || null,
         estoque: estoque || 0,
         ativo: ativo !== undefined ? ativo : true,
-        created_at: new Date().toISOString()
+        data_cadastro: new Date().toISOString()
       }])
       .select()
       .single()
