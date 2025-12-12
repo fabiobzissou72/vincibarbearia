@@ -77,9 +77,14 @@ export default function ConfiguracoesPage() {
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
   const [mostrarToken, setMostrarToken] = useState(false)
+  const [barbeiros, setBarbeiros] = useState<any[]>([])
+  const [webhooksBarbeiros, setWebhooksBarbeiros] = useState<any[]>([])
+  const [editandoWebhook, setEditandoWebhook] = useState<string | null>(null)
+  const [webhookTemp, setWebhookTemp] = useState({ url: '', eventos: ['novo_agendamento', 'cancelamento', 'confirmacao'], ativo: true })
 
   useEffect(() => {
     loadConfig()
+    loadBarbeiros()
   }, [])
 
   const loadConfig = async () => {
@@ -217,6 +222,98 @@ export default function ConfiguracoesPage() {
     } else {
       alert('⚠️ Nenhum token gerado ainda. Clique em "Gerar Novo Token" primeiro.')
     }
+  }
+
+  const loadBarbeiros = async () => {
+    try {
+      const { data: barbeirosList, error } = await supabase
+        .from('profissionais')
+        .select('id, nome, telefone')
+        .eq('ativo', true)
+        .order('nome')
+
+      if (barbeirosList && !error) {
+        setBarbeiros(barbeirosList)
+
+        // Carregar webhooks de cada barbeiro
+        const { data: webhooks } = await supabase
+          .from('webhooks_barbeiros')
+          .select('*')
+
+        setWebhooksBarbeiros(webhooks || [])
+      }
+    } catch (error) {
+      console.error('Erro ao carregar barbeiros:', error)
+    }
+  }
+
+  const salvarWebhookBarbeiro = async (barbeiroId: string) => {
+    try {
+      const webhookExistente = webhooksBarbeiros.find(w => w.profissional_id === barbeiroId)
+
+      if (webhookTemp.url) {
+        if (webhookExistente) {
+          // Atualizar
+          const { error } = await supabase
+            .from('webhooks_barbeiros')
+            .update({
+              webhook_url: webhookTemp.url,
+              eventos: webhookTemp.eventos,
+              ativo: webhookTemp.ativo
+            })
+            .eq('id', webhookExistente.id)
+
+          if (!error) {
+            alert('✅ Webhook atualizado com sucesso!')
+          }
+        } else {
+          // Criar novo
+          const { error } = await supabase
+            .from('webhooks_barbeiros')
+            .insert([{
+              profissional_id: barbeiroId,
+              webhook_url: webhookTemp.url,
+              eventos: webhookTemp.eventos,
+              ativo: webhookTemp.ativo
+            }])
+
+          if (!error) {
+            alert('✅ Webhook configurado com sucesso!')
+          }
+        }
+      } else {
+        // Deletar se existir e URL vazia
+        if (webhookExistente) {
+          await supabase
+            .from('webhooks_barbeiros')
+            .delete()
+            .eq('id', webhookExistente.id)
+
+          alert('✅ Webhook removido!')
+        }
+      }
+
+      setEditandoWebhook(null)
+      setWebhookTemp({ url: '', eventos: ['novo_agendamento', 'cancelamento', 'confirmacao'], ativo: true })
+      loadBarbeiros()
+    } catch (error) {
+      console.error('Erro ao salvar webhook:', error)
+      alert('❌ Erro ao salvar webhook')
+    }
+  }
+
+  const iniciarEdicaoWebhook = (barbeiroId: string) => {
+    const webhook = webhooksBarbeiros.find(w => w.profissional_id === barbeiroId)
+    if (webhook) {
+      setWebhookTemp({
+        url: webhook.webhook_url,
+        eventos: webhook.eventos,
+        ativo: webhook.ativo
+      })
+    } else {
+      setWebhookTemp({ url: '', eventos: ['novo_agendamento', 'cancelamento', 'confirmacao'], ativo: true })
+    }
+    setEditandoWebhook(barbeiroId)
   }
 
   if (loading) {
@@ -723,6 +820,148 @@ export default function ConfiguracoesPage() {
                   <li>• Sugestão: Execute a cada hora entre 8h-20h</li>
                   <li>• Todas as notificações são registradas no banco de dados</li>
                   <li>• Veja o guia <strong>N8N-CRON-FOLLOWUP.md</strong> no GitHub para detalhes</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Webhooks por Barbeiro */}
+      <Card className="bg-purple-900/20 border-purple-700/50">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center space-x-2">
+            <Bell className="w-5 h-5 text-purple-400" />
+            <span>Webhooks Personalizados por Barbeiro</span>
+          </CardTitle>
+          <p className="text-sm text-purple-300 mt-1">
+            Configure webhooks individuais para cada barbeiro receber notificações de seus próprios agendamentos
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {barbeiros.map(barbeiro => {
+              const webhook = webhooksBarbeiros.find(w => w.profissional_id === barbeiro.id)
+              const estaEditando = editandoWebhook === barbeiro.id
+
+              return (
+                <div key={barbeiro.id} className="p-4 bg-slate-800 rounded-lg border border-purple-600/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="text-white font-medium">{barbeiro.nome}</div>
+                      <div className="text-xs text-purple-300">{barbeiro.telefone}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {webhook && (
+                        <span className={`text-xs px-2 py-1 rounded ${webhook.ativo ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                          {webhook.ativo ? '● Ativo' : '○ Inativo'}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => iniciarEdicaoWebhook(barbeiro.id)}
+                        className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded transition-colors"
+                      >
+                        {webhook ? 'Editar' : 'Configurar'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {estaEditando && (
+                    <div className="space-y-3 mt-3 pt-3 border-t border-slate-700">
+                      <div>
+                        <label className="block text-sm text-purple-300 mb-1">URL do Webhook</label>
+                        <input
+                          type="url"
+                          value={webhookTemp.url}
+                          onChange={(e) => setWebhookTemp({ ...webhookTemp, url: e.target.value })}
+                          placeholder="https://seu-n8n.com/webhook/barbeiro-notif"
+                          className="w-full px-3 py-2 bg-slate-700 border border-purple-600/50 rounded text-white text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm text-purple-300 mb-2">Eventos</label>
+                        <div className="flex flex-wrap gap-2">
+                          {['novo_agendamento', 'cancelamento', 'confirmacao'].map(evento => (
+                            <label key={evento} className="flex items-center gap-2 text-sm text-white cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={webhookTemp.eventos.includes(evento)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setWebhookTemp({ ...webhookTemp, eventos: [...webhookTemp.eventos, evento] })
+                                  } else {
+                                    setWebhookTemp({ ...webhookTemp, eventos: webhookTemp.eventos.filter(ev => ev !== evento) })
+                                  }
+                                }}
+                                className="rounded"
+                              />
+                              <span className="capitalize">{evento.replace('_', ' ')}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={webhookTemp.ativo}
+                            onChange={(e) => setWebhookTemp({ ...webhookTemp, ativo: e.target.checked })}
+                            className="rounded"
+                          />
+                          <span>Webhook ativo</span>
+                        </label>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => salvarWebhookBarbeiro(barbeiro.id)}
+                          className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                        >
+                          💾 Salvar Webhook
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditandoWebhook(null)
+                            setWebhookTemp({ url: '', eventos: ['novo_agendamento', 'cancelamento', 'confirmacao'], ativo: true })
+                          }}
+                          className="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {webhook && !estaEditando && (
+                    <div className="mt-2 text-xs text-slate-400">
+                      <div className="truncate">🔗 {webhook.webhook_url}</div>
+                      <div>📋 Eventos: {webhook.eventos.join(', ')}</div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {barbeiros.length === 0 && (
+              <div className="text-center py-8 text-purple-300">
+                <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>Nenhum barbeiro cadastrado</p>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <span className="text-2xl">ℹ️</span>
+              <div className="flex-1">
+                <div className="text-blue-300 font-medium mb-1">Como Funciona</div>
+                <ul className="text-sm text-blue-200 space-y-1">
+                  <li>• Cada barbeiro pode ter seu próprio webhook personalizado</li>
+                  <li>• Webhooks são disparados apenas para agendamentos daquele barbeiro</li>
+                  <li>• Configure no N8N para enviar notificações WhatsApp individuais</li>
+                  <li>• Escolha quais eventos cada barbeiro quer receber</li>
                 </ul>
               </div>
             </div>
