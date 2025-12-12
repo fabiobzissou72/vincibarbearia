@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import {
-  Calendar, Users, TrendingUp, DollarSign, Clock, Award, Bell, Settings,
+  Calendar, Users, TrendingUp, DollarSign, Clock, Award, Settings,
   Search, User, BarChart3, PieChart, Home, UserCheck, Scissors,
   ShoppingBag, FileText, LogOut, Menu, Package, Gift
 } from 'lucide-react'
@@ -169,12 +169,6 @@ export default function DashboardLayout({
                 <div className="flex items-center space-x-1 text-slate-400 hidden md:flex">
                   <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                   <span className="text-sm">Online</span>
-                </div>
-                <div className="relative">
-                  <Bell className="w-5 h-5 text-slate-400 hover:text-white cursor-pointer transition-colors" />
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs">1</span>
-                  </div>
                 </div>
               </div>
             </div>
