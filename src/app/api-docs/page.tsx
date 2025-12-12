@@ -15,31 +15,59 @@ export default function ApiDocsPage() {
   const apiSections = [
     {
       titulo: '🔐 Autenticação',
-      descricao: 'Todas as APIs requerem autenticação via Bearer Token',
+      descricao: 'Todas as APIs requerem autenticação via Bearer Token (exceto lembretes simples)',
       rotas: [
         {
-          metodo: 'GET/POST',
+          metodo: 'GET/POST/PUT/DELETE',
           rota: 'Todas as rotas',
-          descricao: 'Use o header Authorization com o token gerado em Configurações',
-          exemplo: `Authorization: Bearer vinci_XXXXXXXXXXXXXXXXX...`
+          descricao: 'Use o header Authorization com o token gerado em Configurações → Segurança da API',
+          exemplo: `# Exemplo de uso em todas as requisições
+Authorization: Bearer vinci_XXXXXXXXXXXXXXXXX...
+
+# Gere seu token em: Dashboard → Configurações → Segurança da API
+# O token é único e NÃO expira (guarde com segurança!)`
         }
       ]
     },
     {
       titulo: '📅 Agendamentos',
-      descricao: 'APIs para gerenciar agendamentos',
+      descricao: 'APIs para gerenciar agendamentos completos',
       rotas: [
+        {
+          metodo: 'GET',
+          rota: '/api/agendamentos',
+          descricao: 'Listar todos os agendamentos (com filtros opcionais)',
+          parametros: 'status, data_inicio, data_fim, profissional_id',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/agendamentos?status=agendado" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
+        },
+        {
+          metodo: 'GET',
+          rota: '/api/agendamentos/horarios-disponiveis',
+          descricao: 'Buscar horários disponíveis para uma data específica',
+          parametros: 'data (YYYY-MM-DD, obrigatório), barbeiro (nome, opcional), servico_ids (separados por vírgula, opcional)',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/agendamentos/horarios-disponiveis?data=2025-12-20&barbeiro=Hiago&servico_ids=uuid1,uuid2" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
+        },
+        {
+          metodo: 'GET',
+          rota: '/api/agendamentos/buscar-barbeiro-rodizio',
+          descricao: 'Buscar próximo barbeiro disponível no rodízio automático',
+          parametros: 'data (DD-MM-YYYY), hora (HH:MM), servico_ids (separados por vírgula)',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/agendamentos/buscar-barbeiro-rodizio?data=20-12-2025&hora=14:00&servico_ids=uuid1,uuid2" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
+        },
         {
           metodo: 'POST',
           rota: '/api/agendamentos/criar',
-          descricao: 'Criar novo agendamento com rodízio automático',
+          descricao: 'Criar novo agendamento com rodízio automático de barbeiros',
           body: {
             cliente_nome: "João Silva",
             telefone: "11999998888",
             data: "2025-12-15",
             hora: "14:00",
             servico_ids: ["uuid-servico-1", "uuid-servico-2"],
-            barbeiro_preferido: "Hiago (opcional)",
+            barbeiro_preferido: "Hiago (opcional, deixe vazio para rodízio)",
             observacoes: "Cliente prefere barba com navalha"
           },
           exemplo: `curl -X POST https://seu-dominio.com/api/agendamentos/criar \\
@@ -54,61 +82,99 @@ export default function ApiDocsPage() {
   }'`
         },
         {
-          metodo: 'DELETE',
-          rota: '/api/agendamentos/cancelar',
-          descricao: 'Cancelar agendamento com validação de prazo',
-          body: {
-            agendamento_id: "uuid-do-agendamento",
-            motivo: "Cliente teve imprevisto",
-            cancelado_por: "cliente"
-          }
-        },
-        {
           metodo: 'POST',
-          rota: '/api/agendamentos/reagendar',
-          descricao: 'Reagendar um agendamento existente',
+          rota: '/api/agendamentos/confirmar-comparecimento',
+          descricao: 'Cliente confirma que vai comparecer (via WhatsApp geralmente)',
           body: {
             agendamento_id: "uuid-do-agendamento",
-            nova_data: "15-12-2025",
-            nova_hora: "16:00"
-          }
+            confirmado: true
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/agendamentos/confirmar-comparecimento \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"agendamento_id": "uuid-123", "confirmado": true}'`
         },
         {
           metodo: 'POST',
           rota: '/api/agendamentos/checkin',
-          descricao: 'Fazer check-in do cliente (iniciar atendimento)',
+          descricao: 'Fazer check-in do cliente (marcar que chegou e iniciar atendimento)',
           body: {
             agendamento_id: "uuid-do-agendamento"
-          }
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/agendamentos/checkin \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"agendamento_id": "uuid-123"}'`
         },
         {
           metodo: 'POST',
           rota: '/api/agendamentos/finalizar',
-          descricao: 'Finalizar atendimento e calcular tempo',
+          descricao: 'Finalizar atendimento, calcular tempo total e registrar valor',
           body: {
             agendamento_id: "uuid-do-agendamento",
             valor_final: 45.00,
-            observacoes: "Cliente satisfeito"
-          }
+            observacoes: "Cliente satisfeito, pediu produto XYZ"
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/agendamentos/finalizar \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"agendamento_id": "uuid-123", "valor_final": 45.00}'`
+        },
+        {
+          metodo: 'POST',
+          rota: '/api/agendamentos/reagendar',
+          descricao: 'Reagendar um agendamento existente para nova data/hora',
+          body: {
+            agendamento_id: "uuid-do-agendamento",
+            nova_data: "15-12-2025",
+            nova_hora: "16:00"
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/agendamentos/reagendar \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"agendamento_id": "uuid-123", "nova_data": "15-12-2025", "nova_hora": "16:00"}'`
+        },
+        {
+          metodo: 'DELETE',
+          rota: '/api/agendamentos/cancelar',
+          descricao: 'Cancelar agendamento (com validação de prazo antecedência)',
+          body: {
+            agendamento_id: "uuid-do-agendamento",
+            motivo: "Cliente teve imprevisto",
+            cancelado_por: "cliente"
+          },
+          exemplo: `curl -X DELETE https://seu-dominio.com/api/agendamentos/cancelar \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"agendamento_id": "uuid-123", "motivo": "Imprevisto", "cancelado_por": "cliente"}'`
         }
       ]
     },
     {
       titulo: '👤 Clientes',
-      descricao: 'APIs para gerenciar clientes',
+      descricao: 'APIs para gerenciar clientes e histórico',
       rotas: [
         {
           metodo: 'POST',
           rota: '/api/clientes/criar',
-          descricao: 'Cadastrar novo cliente',
+          descricao: 'Cadastrar novo cliente no sistema',
           body: {
             nome_completo: "João Silva",
             telefone: "11999998888",
             email: "joao@email.com",
             data_nascimento: "1990-05-20",
             profissional_preferido: "Hiago",
-            is_vip: false
-          }
+            is_vip: false,
+            observacoes: "Prefere barba sem máquina"
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/clientes/criar \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "nome_completo": "João Silva",
+    "telefone": "11999998888",
+    "email": "joao@email.com"
+  }'`
         },
         {
           metodo: 'POST',
@@ -117,114 +183,220 @@ export default function ApiDocsPage() {
           body: {
             cliente_id: "uuid-do-cliente",
             is_vip: true,
-            observacoes: "Cliente frequente"
-          }
+            observacoes: "Cliente frequente, sempre pontual"
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/clientes/atualizar \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"cliente_id": "uuid-123", "is_vip": true}'`
         },
         {
           metodo: 'GET',
-          rota: '/api/clientes/historico?telefone=11999998888',
-          descricao: 'Buscar histórico completo do cliente',
+          rota: '/api/clientes/historico',
+          descricao: 'Buscar histórico completo do cliente (todos os agendamentos)',
+          parametros: 'telefone (obrigatório) - telefone do cliente com DDD',
           exemplo: `curl -X GET "https://seu-dominio.com/api/clientes/historico?telefone=11999998888" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
+        },
+        {
+          metodo: 'GET',
+          rota: '/api/clientes/meus-agendamentos',
+          descricao: 'Cliente busca seus próprios agendamentos futuros',
+          parametros: 'telefone (obrigatório)',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/clientes/meus-agendamentos?telefone=11999998888" \\
   -H "Authorization: Bearer SEU_TOKEN"`
         }
       ]
     },
     {
       titulo: '✂️ Barbeiros',
-      descricao: 'APIs para barbeiros',
+      descricao: 'APIs completas para barbeiros e profissionais',
       rotas: [
         {
           metodo: 'GET',
-          rota: '/api/barbeiros/meus-agendamentos?barbeiro_nome=Hiago&periodo=hoje',
-          descricao: 'Listar agendamentos do barbeiro',
-          parametros: 'periodo: hoje | amanha | semana | semana_que_vem | mes | mes_que_vem | proximos7dias | proximos30dias'
+          rota: '/api/barbeiros/listar',
+          descricao: 'Listar todos os barbeiros cadastrados (com estatísticas e próximo do rodízio)',
+          parametros: 'ativo (opcional, default: true) - true | false',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/barbeiros/listar?ativo=true" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
+        },
+        {
+          metodo: 'GET',
+          rota: '/api/barbeiros/meus-agendamentos',
+          descricao: 'Listar agendamentos de um barbeiro específico por período',
+          parametros: 'barbeiro_nome (obrigatório), periodo: hoje | amanha | semana | semana_que_vem | mes | mes_que_vem | proximos7dias | proximos30dias',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/barbeiros/meus-agendamentos?barbeiro_nome=Hiago&periodo=hoje" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
+        },
+        {
+          metodo: 'GET',
+          rota: '/api/barbeiros/agendamentos-hoje',
+          descricao: 'Buscar apenas os agendamentos de hoje do barbeiro',
+          parametros: 'barbeiro_nome (obrigatório)',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/barbeiros/agendamentos-hoje?barbeiro_nome=Hiago" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
+        },
+        {
+          metodo: 'GET',
+          rota: '/api/barbeiros/agendamentos-semana',
+          descricao: 'Buscar agendamentos da semana atual do barbeiro',
+          parametros: 'barbeiro_nome (obrigatório)',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/barbeiros/agendamentos-semana?barbeiro_nome=Hiago" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
+        },
+        {
+          metodo: 'GET',
+          rota: '/api/barbeiros/horarios',
+          descricao: 'Buscar horários de trabalho configurados do barbeiro',
+          parametros: 'barbeiro_id (obrigatório)',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/barbeiros/horarios?barbeiro_id=uuid-123" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
+        },
+        {
+          metodo: 'GET',
+          rota: '/api/barbeiros/meu-faturamento',
+          descricao: 'Consultar faturamento pessoal do barbeiro',
+          parametros: 'barbeiro_nome (obrigatório), periodo (opcional)',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/barbeiros/meu-faturamento?barbeiro_nome=Hiago" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
+        },
+        {
+          metodo: 'GET',
+          rota: '/api/barbeiros/faturamento-mes',
+          descricao: 'Faturamento do barbeiro no mês atual',
+          parametros: 'barbeiro_id (obrigatório)',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/barbeiros/faturamento-mes?barbeiro_id=uuid-123" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
         },
         {
           metodo: 'POST',
           rota: '/api/barbeiros/bloquear-horario',
-          descricao: 'Bloquear horário específico (almoço, folga, etc)',
+          descricao: 'Bloquear horário específico do barbeiro (almoço, folga, compromisso)',
           body: {
             barbeiro_id: "uuid-do-barbeiro",
             data: "15-12-2025",
             hora_inicio: "12:00",
             hora_fim: "13:00",
             motivo: "Almoço"
-          }
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/barbeiros/bloquear-horario \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"barbeiro_id": "uuid-123", "data": "15-12-2025", "hora_inicio": "12:00", "hora_fim": "13:00", "motivo": "Almoço"}'`
+        },
+        {
+          metodo: 'DELETE',
+          rota: '/api/barbeiros/cancelar-meu-agendamento',
+          descricao: 'Barbeiro cancela um agendamento próprio',
+          body: {
+            agendamento_id: "uuid-do-agendamento",
+            motivo: "Imprevisto pessoal"
+          },
+          exemplo: `curl -X DELETE https://seu-dominio.com/api/barbeiros/cancelar-meu-agendamento \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"agendamento_id": "uuid-123", "motivo": "Imprevisto"}'`
         },
         {
           metodo: 'POST',
           rota: '/api/barbeiros/configurar-webhook',
-          descricao: 'Configurar webhook personalizado para o barbeiro',
+          descricao: 'Configurar webhook personalizado para o barbeiro receber notificações',
           body: {
             barbeiro_id: "uuid-do-barbeiro",
-            webhook_url: "https://n8n.com/webhook/barbeiro-notif",
-            eventos: ["novo_agendamento", "cancelamento"],
+            webhook_url: "https://n8n.com/webhook/barbeiro-hiago",
+            eventos: ["novo_agendamento", "cancelamento", "confirmacao"],
             ativo: true
-          }
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/barbeiros/configurar-webhook \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"barbeiro_id": "uuid-123", "webhook_url": "https://n8n.com/webhook/notif", "eventos": ["novo_agendamento"], "ativo": true}'`
         },
         {
           metodo: 'GET',
-          rota: '/api/barbeiros/webhooks?barbeiro_id=uuid',
-          descricao: 'Listar webhooks configurados para um barbeiro'
+          rota: '/api/barbeiros/webhooks',
+          descricao: 'Listar todos os webhooks configurados para um barbeiro',
+          parametros: 'barbeiro_id (obrigatório)',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/barbeiros/webhooks?barbeiro_id=uuid-123" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
         }
       ]
     },
     {
       titulo: '🛍️ Produtos',
-      descricao: 'APIs para gerenciar produtos',
+      descricao: 'APIs para gerenciar produtos e estoque',
       rotas: [
         {
           metodo: 'GET',
-          rota: '/api/produtos/listar?ativo=true',
-          descricao: 'Listar todos os produtos'
+          rota: '/api/produtos/listar',
+          descricao: 'Listar todos os produtos (com filtro opcional por status)',
+          parametros: 'ativo (opcional) - true | false',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/produtos/listar?ativo=true" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
         },
         {
           metodo: 'POST',
           rota: '/api/produtos/criar',
-          descricao: 'Criar novo produto',
+          descricao: 'Criar novo produto no catálogo',
           body: {
             nome: "Pomada Modeladora",
-            descricao: "Pomada fixação média",
+            descricao: "Pomada fixação média, ideal para todos os tipos de cabelo",
             preco: 45.00,
             categoria: "Cosméticos",
             estoque: 10,
             ativo: true
-          }
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/produtos/criar \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"nome": "Pomada Modeladora", "preco": 45.00, "estoque": 10}'`
         },
         {
           metodo: 'POST',
           rota: '/api/produtos/atualizar',
-          descricao: 'Atualizar produto existente',
+          descricao: 'Atualizar produto existente (preço, estoque, status)',
           body: {
             produto_id: "uuid-do-produto",
             preco: 50.00,
-            estoque: 15
-          }
+            estoque: 15,
+            ativo: true
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/produtos/atualizar \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"produto_id": "uuid-123", "preco": 50.00, "estoque": 15}'`
         }
       ]
     },
     {
       titulo: '💎 Planos',
-      descricao: 'APIs para gerenciar planos de serviço',
+      descricao: 'APIs para gerenciar planos e pacotes de serviços',
       rotas: [
         {
           metodo: 'GET',
-          rota: '/api/planos/listar?ativo=true',
-          descricao: 'Listar todos os planos'
+          rota: '/api/planos/listar',
+          descricao: 'Listar todos os planos disponíveis',
+          parametros: 'ativo (opcional) - true | false',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/planos/listar?ativo=true" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
         },
         {
           metodo: 'POST',
           rota: '/api/planos/criar',
-          descricao: 'Criar novo plano',
+          descricao: 'Criar novo plano/pacote de serviços',
           body: {
             nome: "Plano Executivo",
-            descricao: "5 cortes + 3 barbas",
+            descricao: "5 cortes + 3 barbas por mês",
             valor_original: 400.00,
             valor_total: 320.00,
             quantidade_servicos: 8,
             validade_dias: 90,
             ativo: true
-          }
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/planos/criar \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"nome": "Plano Executivo", "valor_original": 400, "valor_total": 320, "quantidade_servicos": 8, "validade_dias": 90}'`
         },
         {
           metodo: 'POST',
@@ -234,20 +406,107 @@ export default function ApiDocsPage() {
             plano_id: "uuid-do-plano",
             valor_total: 300.00,
             ativo: false
-          }
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/planos/atualizar \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"plano_id": "uuid-123", "valor_total": 300.00, "ativo": false}'`
+        }
+      ]
+    },
+    {
+      titulo: '✨ Serviços',
+      descricao: 'APIs para gerenciar serviços oferecidos',
+      rotas: [
+        {
+          metodo: 'GET',
+          rota: '/api/servicos',
+          descricao: 'Listar todos os serviços ativos da barbearia',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/servicos" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
+        },
+        {
+          metodo: 'POST',
+          rota: '/api/servicos',
+          descricao: 'Criar novo serviço',
+          body: {
+            nome: "Corte Degradê",
+            descricao: "Corte moderno com degradê nas laterais",
+            preco: 45.00,
+            duracao_minutos: 40,
+            categoria: "Cabelo",
+            ativo: true
+          },
+          exemplo: `curl -X POST https://seu-dominio.com/api/servicos \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"nome": "Corte Degradê", "preco": 45.00, "duracao_minutos": 40}'`
+        },
+        {
+          metodo: 'PUT',
+          rota: '/api/servicos',
+          descricao: 'Atualizar serviço existente',
+          body: {
+            id: "uuid-do-servico",
+            nome: "Corte Degradê Premium",
+            preco: 50.00,
+            duracao_minutos: 45
+          },
+          exemplo: `curl -X PUT https://seu-dominio.com/api/servicos \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"id": "uuid-123", "preco": 50.00}'`
+        },
+        {
+          metodo: 'DELETE',
+          rota: '/api/servicos?id=uuid-123',
+          descricao: 'Desativar serviço (soft delete)',
+          parametros: 'id (obrigatório) - UUID do serviço',
+          exemplo: `curl -X DELETE "https://seu-dominio.com/api/servicos?id=uuid-123" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
+        }
+      ]
+    },
+    {
+      titulo: '🔔 Lembretes (N8N)',
+      descricao: 'API simples para N8N buscar e enviar lembretes (SEM autenticação)',
+      rotas: [
+        {
+          metodo: 'GET',
+          rota: '/api/lembretes',
+          descricao: 'Buscar agendamentos para enviar lembretes via WhatsApp',
+          parametros: 'tipo: amanha | hoje | 1hora',
+          exemplo: `# Esta API NÃO requer autenticação (uso interno N8N)
+curl -X GET "https://seu-dominio.com/api/lembretes?tipo=amanha"
+
+# Retorna lista de clientes para N8N enviar WhatsApp
+# - amanha: agendamentos de amanhã (lembrete 24h antes)
+# - hoje: agendamentos de hoje (lembrete manhã)
+# - 1hora: agendamentos daqui 1 hora (lembrete urgente)`
+        },
+        {
+          metodo: 'GET',
+          rota: '/api/cron/lembretes',
+          descricao: 'Endpoint automático para cron jobs enviarem lembretes (COM autenticação)',
+          exemplo: `curl -X GET "https://seu-dominio.com/api/cron/lembretes" \\
+  -H "Authorization: Bearer SEU_TOKEN"`
         }
       ]
     },
     {
       titulo: '📊 Estatísticas Admin',
-      descricao: 'APIs administrativas para estatísticas gerais',
+      descricao: 'APIs administrativas para estatísticas e relatórios',
       rotas: [
         {
           metodo: 'GET',
-          rota: '/api/admin/estatisticas?periodo=mes',
-          descricao: 'Estatísticas completas da barbearia',
-          parametros: 'periodo: hoje | semana | mes | ano',
+          rota: '/api/admin/estatisticas',
+          descricao: 'Estatísticas completas da barbearia (faturamento, taxa comparecimento, barbeiro mais ativo, etc)',
+          parametros: 'periodo: hoje | semana | mes | ano, data_inicio (DD-MM-YYYY, opcional), data_fim (DD-MM-YYYY, opcional)',
           exemplo: `curl -X GET "https://seu-dominio.com/api/admin/estatisticas?periodo=mes" \\
+  -H "Authorization: Bearer SEU_TOKEN"
+
+# Ou com período customizado:
+curl -X GET "https://seu-dominio.com/api/admin/estatisticas?data_inicio=01-12-2025&data_fim=31-12-2025" \\
   -H "Authorization: Bearer SEU_TOKEN"`
         }
       ]
@@ -346,10 +605,15 @@ export default function ApiDocsPage() {
         {/* Footer */}
         <div className="bg-gradient-to-r from-slate-800 to-purple-900 rounded-lg p-6 text-center border border-purple-500/30 shadow-xl">
           <p className="text-purple-200 mb-2">
+            📚 Documentação completa com TODAS as APIs do sistema<br />
             Precisa de ajuda? Acesse as configurações do sistema ou entre em contato com o suporte.
           </p>
+          <p className="text-purple-400 text-sm mb-2">
+            🎯 <strong>{apiSections.reduce((acc, sec) => acc + sec.rotas.length, 0)} endpoints documentados</strong> |
+            ✅ Exemplos curl para todas as rotas
+          </p>
           <p className="text-purple-400 text-sm">
-            Versão da API: v1.0.0 | Última atualização: 12/12/2025
+            Versão da API: v2.0.0 | Última atualização: 12/12/2025
           </p>
         </div>
       </div>
