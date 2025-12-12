@@ -1178,27 +1178,30 @@ export default function AgendamentosPage() {
               className="bg-purple-800/30 border-purple-700/50 hover:bg-purple-800/40 transition-colors cursor-pointer"
               onClick={() => setDetalhesAgendamento(agendamento)}
             >
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex flex-col items-center">
+              <CardContent className="p-3 md:p-4">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+                  {/* Seção principal com horário e informações */}
+                  <div className="flex items-start space-x-3 md:space-x-4 flex-1">
+                    {/* Horário */}
+                    <div className="flex flex-col items-center flex-shrink-0">
                       <div className="text-xs text-purple-400 mb-1">{convertISOtoBR(agendamento.data_agendamento)}</div>
-                      <div className="text-2xl font-bold text-white">{formatTime(agendamento.hora_inicio)}</div>
-                      <div className={`w-3 h-3 rounded-full ${getStatusColor(agendamento.status)}`}></div>
+                      <div className="text-xl md:text-2xl font-bold text-white">{formatTime(agendamento.hora_inicio)}</div>
+                      <div className={`w-3 h-3 rounded-full mt-1 ${getStatusColor(agendamento.status)}`}></div>
                     </div>
 
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <User className="w-4 h-4 text-purple-400" />
+                    {/* Informações do agendamento */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1 md:gap-2 mb-1">
+                        <User className="w-4 h-4 text-purple-400 flex-shrink-0" />
                         <span className="font-medium text-white">{agendamento.nome_cliente}</span>
-                        <span className="text-purple-300 text-sm">({agendamento.telefone})</span>
+                        <span className="text-purple-300 text-xs md:text-sm">({agendamento.telefone})</span>
                       </div>
 
                       <div className="space-y-1">
-                        <div className="flex items-center space-x-2 text-sm text-purple-300">
+                        <div className="text-xs md:text-sm text-purple-300">
                           <span>✂️ {agendamento.profissionais?.nome || 'Profissional não definido'}</span>
                         </div>
-                        <div className="flex items-center space-x-2 text-sm text-purple-300">
+                        <div className="flex flex-wrap items-center gap-1 text-xs md:text-sm text-purple-300">
                           <span>📋 Serviços:</span>
                           {agendamento.agendamento_servicos && agendamento.agendamento_servicos.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
@@ -1212,7 +1215,7 @@ export default function AgendamentosPage() {
                             <span>{agendamento.servicos?.nome || 'Não definido'}</span>
                           )}
                         </div>
-                        <div className="flex items-center space-x-1 text-sm text-purple-300">
+                        <div className="flex items-center space-x-1 text-xs md:text-sm text-purple-300">
                           <Clock className="w-3 h-3" />
                           <span>
                             {agendamento.agendamento_servicos && agendamento.agendamento_servicos.length > 0
@@ -1223,20 +1226,22 @@ export default function AgendamentosPage() {
                       </div>
 
                       {agendamento.observacoes && (
-                        <div className="mt-2 text-sm text-purple-300">
+                        <div className="mt-2 text-xs md:text-sm text-purple-300 truncate">
                           💬 {agendamento.observacoes}
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <div className="flex items-center space-x-1 text-green-400 font-medium">
+                  {/* Seção de valor, status e ações */}
+                  <div className="flex items-center justify-between md:justify-end gap-2 md:gap-4 border-t md:border-t-0 pt-3 md:pt-0 border-purple-700/30">
+                    {/* Valor e Status */}
+                    <div className="text-left md:text-right">
+                      <div className="flex items-center space-x-1 text-green-400 font-medium text-sm md:text-base">
                         <DollarSign className="w-4 h-4" />
                         <span>{formatCurrency(agendamento.valor)}</span>
                       </div>
-                      <div className="text-xs text-purple-300 capitalize">{agendamento.status.replace('_', ' ')}</div>
+                      <div className="text-xs text-purple-300 capitalize mt-0.5">{agendamento.status.replace('_', ' ')}</div>
 
                       {/* Status de Comparecimento - NÃO mostrar se cancelado */}
                       {agendamento.status !== 'cancelado' && agendamento.compareceu === true && (
@@ -1253,7 +1258,7 @@ export default function AgendamentosPage() {
 
                     {/* Botões de Check-in - NÃO mostrar se cancelado */}
                     {agendamento.status !== 'cancelado' && (
-                      <div className="flex flex-col space-y-1" onClick={(e) => e.stopPropagation()}>
+                      <div className="hidden md:flex flex-col space-y-1" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => marcarComparecimento(agendamento.id, true)}
                           className={`flex items-center space-x-1 px-3 py-1.5 rounded text-xs transition-colors ${
@@ -1281,20 +1286,21 @@ export default function AgendamentosPage() {
                     </div>
                     )}
 
-                    <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+                    {/* Botões de ação */}
+                    <div className="flex space-x-1 md:space-x-2" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleEdit(agendamento)}
                         className="p-2 text-purple-300 hover:text-white hover:bg-purple-700/50 rounded-lg transition-colors"
                         title="Editar agendamento"
                       >
-                        <Edit className="w-4 h-4" />
+                        <Edit className="w-3 h-3 md:w-4 md:h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(agendamento.id)}
                         className="p-2 text-red-300 hover:text-white hover:bg-red-700/50 rounded-lg transition-colors"
                         title="Excluir agendamento"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
                       </button>
                     </div>
                   </div>
