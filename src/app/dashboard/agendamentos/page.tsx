@@ -46,6 +46,7 @@ type FiltroTemporal = 'hoje' | 'amanha' | 'semana' | 'proximos7' | 'passados' | 
 type FiltroStatus = 'todos' | 'agendado' | 'confirmado' | 'em_andamento' | 'concluido' | 'cancelado'
 
 type VisualizacaoMode = 'lista' | 'calendario'
+type CalendarioMode = 'dia' | 'mes'
 
 export default function AgendamentosPage() {
   // Função auxiliar para obter data no timezone de Brasília
@@ -67,7 +68,9 @@ export default function AgendamentosPage() {
   const [editingAgendamento, setEditingAgendamento] = useState<Agendamento | null>(null)
   const [detalhesAgendamento, setDetalhesAgendamento] = useState<Agendamento | null>(null)
   const [visualizacao, setVisualizacao] = useState<VisualizacaoMode>('lista')
+  const [calendarioMode, setCalendarioMode] = useState<CalendarioMode>('dia')
   const [currentMonth, setCurrentMonth] = useState(getDataBrasilia())
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(getDataBrasiliaISO())
   const [profissionais, setProfissionais] = useState<Profissional[]>([])
   const [servicos, setServicos] = useState<Servico[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
@@ -910,28 +913,146 @@ export default function AgendamentosPage() {
       {/* Visualização de Calendário */}
       {visualizacao === 'calendario' && (
         <Card className="bg-slate-800/50 border-slate-700/50">
-          <CardContent className="p-6">
-            {/* Header do Calendário */}
-            <div className="flex items-center justify-between mb-6">
-              <button
-                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-white"
-              >
-                ←
-              </button>
-              <h3 className="text-xl font-bold text-white">
-                {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-              </h3>
-              <button
-                onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-white"
-              >
-                →
-              </button>
+          <CardContent className="p-3 md:p-6">
+            {/* Header do Calendário com Toggle Dia/Mês */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+              {/* Toggle Dia/Mês */}
+              <div className="flex bg-slate-700/50 rounded-lg p-1 border border-slate-600/50">
+                <button
+                  onClick={() => setCalendarioMode('dia')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    calendarioMode === 'dia'
+                      ? 'bg-purple-600 text-white shadow-lg'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  📅 Dia
+                </button>
+                <button
+                  onClick={() => setCalendarioMode('mes')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    calendarioMode === 'mes'
+                      ? 'bg-purple-600 text-white shadow-lg'
+                      : 'text-slate-300 hover:text-white'
+                  }`}
+                >
+                  📆 Mês
+                </button>
+              </div>
+
+              {/* Navegação de Data */}
+              {calendarioMode === 'mes' ? (
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+                    className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-white"
+                  >
+                    ←
+                  </button>
+                  <h3 className="text-lg md:text-xl font-bold text-white min-w-[200px] text-center">
+                    {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                  </h3>
+                  <button
+                    onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+                    className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-white"
+                  >
+                    →
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => {
+                      const prev = new Date(selectedCalendarDate)
+                      prev.setDate(prev.getDate() - 1)
+                      setSelectedCalendarDate(prev.toISOString().split('T')[0])
+                    }}
+                    className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-white"
+                  >
+                    ←
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg md:text-xl font-bold text-white">
+                      {new Date(selectedCalendarDate).toLocaleDateString('pt-BR', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </h3>
+                    <input
+                      type="date"
+                      value={selectedCalendarDate}
+                      onChange={(e) => setSelectedCalendarDate(e.target.value)}
+                      className="px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      const next = new Date(selectedCalendarDate)
+                      next.setDate(next.getDate() + 1)
+                      setSelectedCalendarDate(next.toISOString().split('T')[0])
+                    }}
+                    className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-white"
+                  >
+                    →
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Grid do Calendário */}
-            <div className="grid grid-cols-7 gap-2">
+            {/* Visualização do Dia */}
+            {calendarioMode === 'dia' && (
+              <div className="space-y-3">
+                {getAgendamentosPorData(selectedCalendarDate).length === 0 ? (
+                  <div className="text-center py-12 text-purple-300">
+                    <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>Nenhum agendamento para este dia</p>
+                  </div>
+                ) : (
+                  getAgendamentosPorData(selectedCalendarDate)
+                    .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio))
+                    .map(ag => (
+                      <div
+                        key={ag.id}
+                        onClick={() => setDetalhesAgendamento(ag)}
+                        className="bg-purple-700/30 hover:bg-purple-700/50 rounded-lg p-4 cursor-pointer transition-all border border-purple-600/30 hover:border-purple-500"
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-4 flex-1">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-white">{formatTime(ag.hora_inicio)}</div>
+                              <div className={`w-3 h-3 rounded-full mx-auto mt-1 ${getStatusColor(ag.status)}`}></div>
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium text-white text-lg">{ag.nome_cliente}</div>
+                              <div className="text-sm text-purple-300">✂️ {ag.profissionais?.nome || 'Não definido'}</div>
+                              <div className="text-sm text-slate-400">{ag.telefone}</div>
+                              {ag.agendamento_servicos && ag.agendamento_servicos.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {ag.agendamento_servicos.map((as, idx) => (
+                                    <span key={idx} className="bg-purple-600/30 px-2 py-0.5 rounded text-xs text-purple-200">
+                                      {as.servicos.nome}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-green-400 font-bold text-lg">{formatCurrency(ag.valor)}</div>
+                            <div className="text-xs text-slate-400 capitalize">{ag.status.replace('_', ' ')}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            )}
+
+            {/* Grid do Calendário - Modo Mês */}
+            {calendarioMode === 'mes' && (
+              <div className="grid grid-cols-7 gap-2">
               {/* Cabeçalho com dias da semana */}
               {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(dia => (
                 <div key={dia} className="text-center text-sm font-medium text-slate-400 py-2">
@@ -996,7 +1117,8 @@ export default function AgendamentosPage() {
                   </div>
                 )
               })}
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

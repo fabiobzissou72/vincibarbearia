@@ -190,3 +190,75 @@ export async function getProfissionais(): Promise<Profissional[]> {
     return []
   }
 }
+
+// ============================================
+// AUTENTICAÇÃO POR TOKEN API
+// ============================================
+
+/**
+ * Gera um token API aleatório seguro
+ */
+export function gerarTokenAPI(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let token = 'vinci_'
+  for (let i = 0; i < 64; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return token
+}
+
+/**
+ * Verifica se o token API fornecido é válido
+ */
+export async function verificarTokenAPI(token: string): Promise<{ valido: boolean; erro?: string }> {
+  if (!token) {
+    return {
+      valido: false,
+      erro: 'Token de autorização não fornecido. Use o header: Authorization: Bearer SEU_TOKEN'
+    }
+  }
+
+  try {
+    // Buscar token nas configurações
+    const { data: config, error } = await supabase
+      .from('configuracoes')
+      .select('api_token')
+      .single()
+
+    if (error || !config) {
+      return { valido: false, erro: 'Erro ao verificar token' }
+    }
+
+    if (!config.api_token) {
+      return {
+        valido: false,
+        erro: 'Sistema sem token configurado. Configure um token em Configurações.'
+      }
+    }
+
+    if (token !== config.api_token) {
+      return { valido: false, erro: 'Token inválido ou expirado' }
+    }
+
+    return { valido: true }
+  } catch (err) {
+    console.error('Erro ao verificar token:', err)
+    return { valido: false, erro: 'Erro interno ao verificar token' }
+  }
+}
+
+/**
+ * Extrai o token do header Authorization de uma request
+ */
+export function extrairTokenDaRequest(request: Request): string | null {
+  const authHeader = request.headers.get('Authorization')
+
+  if (!authHeader) {
+    return null
+  }
+
+  // Formato esperado: "Bearer TOKEN"
+  const token = authHeader.replace('Bearer ', '').trim()
+
+  return token || null
+}

@@ -206,17 +206,17 @@ export default function ConfiguracoesPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 md:p-6 space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-white">Configurações</h1>
-          <p className="text-purple-300">Gerencie as configurações da barbearia</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-white">Configurações</h1>
+          <p className="text-sm md:text-base text-purple-300">Gerencie as configurações da barbearia</p>
         </div>
         <button
           onClick={handleSave}
           disabled={salvando}
-          className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50"
+          className="w-full sm:w-auto flex items-center justify-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors disabled:opacity-50 text-sm md:text-base"
         >
           <Save className="w-4 h-4" />
           <span>{salvando ? 'Salvando...' : 'Salvar Alterações'}</span>
@@ -275,29 +275,29 @@ export default function ConfiguracoesPage() {
         {/* Horário de Funcionamento - Ocupação Total */}
         <Card className="bg-purple-900/20 border-purple-700/50 lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-white flex items-center space-x-2">
+            <CardTitle className="text-white flex items-center space-x-2 text-base md:text-lg">
               <Clock className="w-5 h-5 text-purple-400" />
               <span>Horário de Funcionamento por Dia</span>
             </CardTitle>
-            <p className="text-sm text-purple-300 mt-1">Configure os horários individuais para cada dia da semana</p>
+            <p className="text-xs md:text-sm text-purple-300 mt-1">Configure os horários individuais para cada dia da semana</p>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2 md:space-y-3">
             {DIAS_SEMANA.map(dia => {
               const horario = config.horarios_por_dia[dia]
               const isAtivo = horario?.ativo ?? false
 
               return (
-                <div key={dia} className={`p-4 rounded-lg border transition-all ${
+                <div key={dia} className={`p-3 md:p-4 rounded-lg border transition-all ${
                   isAtivo
                     ? 'bg-purple-700/20 border-purple-600/50'
                     : 'bg-slate-800/50 border-slate-700/50'
                 }`}>
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4">
                     {/* Checkbox e Nome do Dia */}
-                    <div className="flex items-center space-x-3 min-w-[120px]">
+                    <div className="flex items-center space-x-3 w-full md:min-w-[120px] md:w-auto">
                       <button
                         onClick={() => toggleDia(dia)}
-                        className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors ${
+                        className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-colors flex-shrink-0 ${
                           isAtivo
                             ? 'bg-purple-600 border-purple-600'
                             : 'bg-slate-700 border-slate-600'
@@ -309,15 +309,25 @@ export default function ConfiguracoesPage() {
                           </svg>
                         )}
                       </button>
-                      <span className={`font-medium ${isAtivo ? 'text-white' : 'text-slate-400'}`}>
+                      <span className={`font-medium text-sm md:text-base ${isAtivo ? 'text-white' : 'text-slate-400'}`}>
                         {dia}
                       </span>
+                      {/* Status mobile */}
+                      <div className="ml-auto md:hidden">
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          isAtivo
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {isAtivo ? 'Aberto' : 'Fechado'}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Horários */}
-                    <div className="flex items-center space-x-3 flex-1">
-                      <div className="flex items-center space-x-2 flex-1">
-                        <label className={`text-sm whitespace-nowrap ${isAtivo ? 'text-purple-300' : 'text-slate-500'}`}>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 flex-1 w-full">
+                      <div className="flex items-center gap-2 flex-1">
+                        <label className={`text-xs md:text-sm whitespace-nowrap ${isAtivo ? 'text-purple-300' : 'text-slate-500'}`}>
                           Abertura:
                         </label>
                         <input
@@ -325,7 +335,7 @@ export default function ConfiguracoesPage() {
                           value={horario?.abertura || '09:00'}
                           onChange={(e) => updateHorarioDia(dia, 'abertura', e.target.value)}
                           disabled={!isAtivo}
-                          className={`px-3 py-2 rounded text-sm ${
+                          className={`flex-1 px-2 md:px-3 py-2 rounded text-xs md:text-sm ${
                             isAtivo
                               ? 'bg-slate-800 border border-purple-600/50 text-white'
                               : 'bg-slate-700/50 border border-slate-600/50 text-slate-500'
@@ -333,10 +343,10 @@ export default function ConfiguracoesPage() {
                         />
                       </div>
 
-                      <span className={`${isAtivo ? 'text-purple-300' : 'text-slate-500'}`}>às</span>
+                      <span className={`hidden sm:inline ${isAtivo ? 'text-purple-300' : 'text-slate-500'}`}>às</span>
 
-                      <div className="flex items-center space-x-2 flex-1">
-                        <label className={`text-sm whitespace-nowrap ${isAtivo ? 'text-purple-300' : 'text-slate-500'}`}>
+                      <div className="flex items-center gap-2 flex-1">
+                        <label className={`text-xs md:text-sm whitespace-nowrap ${isAtivo ? 'text-purple-300' : 'text-slate-500'}`}>
                           Fechamento:
                         </label>
                         <input
@@ -344,7 +354,7 @@ export default function ConfiguracoesPage() {
                           value={horario?.fechamento || '19:00'}
                           onChange={(e) => updateHorarioDia(dia, 'fechamento', e.target.value)}
                           disabled={!isAtivo}
-                          className={`px-3 py-2 rounded text-sm ${
+                          className={`flex-1 px-2 md:px-3 py-2 rounded text-xs md:text-sm ${
                             isAtivo
                               ? 'bg-slate-800 border border-purple-600/50 text-white'
                               : 'bg-slate-700/50 border border-slate-600/50 text-slate-500'
@@ -353,8 +363,8 @@ export default function ConfiguracoesPage() {
                       </div>
                     </div>
 
-                    {/* Status */}
-                    <div className="min-w-[80px] text-right">
+                    {/* Status desktop */}
+                    <div className="hidden md:block min-w-[80px] text-right">
                       <span className={`text-xs px-2 py-1 rounded ${
                         isAtivo
                           ? 'bg-green-500/20 text-green-400'

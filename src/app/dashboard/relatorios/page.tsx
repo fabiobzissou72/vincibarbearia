@@ -335,18 +335,18 @@ export default function RelatoriosPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header com Filtros e Ações */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">Relatórios</h1>
-          <p className="text-purple-300">Análise completa do desempenho da barbearia</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-white">Relatórios</h1>
+          <p className="text-sm md:text-base text-purple-300">Análise completa do desempenho da barbearia</p>
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
           {/* Filtros de Período */}
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             <button
               onClick={() => setPeriodo('todos')}
-              className={`px-3 py-2 rounded text-sm transition-colors ${
+              className={`px-3 py-2 rounded text-xs md:text-sm transition-colors ${
                 periodo === 'todos' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
               }`}
             >
@@ -354,7 +354,7 @@ export default function RelatoriosPage() {
             </button>
             <button
               onClick={() => setPeriodo('hoje')}
-              className={`px-3 py-2 rounded text-sm transition-colors ${
+              className={`px-3 py-2 rounded text-xs md:text-sm transition-colors ${
                 periodo === 'hoje' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
               }`}
             >
@@ -362,7 +362,7 @@ export default function RelatoriosPage() {
             </button>
             <button
               onClick={() => setPeriodo('semana')}
-              className={`px-3 py-2 rounded text-sm transition-colors ${
+              className={`px-3 py-2 rounded text-xs md:text-sm transition-colors ${
                 periodo === 'semana' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
               }`}
             >
@@ -370,7 +370,7 @@ export default function RelatoriosPage() {
             </button>
             <button
               onClick={() => setPeriodo('mes')}
-              className={`px-3 py-2 rounded text-sm transition-colors ${
+              className={`px-3 py-2 rounded text-xs md:text-sm transition-colors ${
                 periodo === 'mes' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
               }`}
             >
@@ -378,7 +378,7 @@ export default function RelatoriosPage() {
             </button>
             <button
               onClick={() => setPeriodo('ano')}
-              className={`px-3 py-2 rounded text-sm transition-colors ${
+              className={`px-3 py-2 rounded text-xs md:text-sm transition-colors ${
                 periodo === 'ano' ? 'bg-purple-600 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
               }`}
             >
@@ -387,10 +387,10 @@ export default function RelatoriosPage() {
           </div>
 
           {/* Botões de Ação */}
-          <div className="flex space-x-2">
+          <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
             <button
               onClick={exportarCSV}
-              className="flex items-center space-x-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors"
+              className="flex-1 sm:flex-none flex items-center justify-center space-x-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-xs md:text-sm transition-colors"
               title="Exportar CSV"
             >
               <Download className="w-4 h-4" />
@@ -398,7 +398,7 @@ export default function RelatoriosPage() {
             </button>
             <button
               onClick={imprimir}
-              className="flex items-center space-x-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
+              className="flex-1 sm:flex-none flex items-center justify-center space-x-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs md:text-sm transition-colors"
               title="Imprimir"
             >
               <Printer className="w-4 h-4" />

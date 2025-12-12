@@ -10,13 +10,17 @@ export const dynamic = 'force-dynamic'
  *
  * Parâmetros:
  * - barbeiro_nome: Nome do barbeiro (obrigatório)
- * - periodo: hoje | semana | mes (opcional, padrão: hoje)
+ * - periodo: hoje | amanha | semana | semana_que_vem | mes | mes_que_vem | proximos7dias | proximos30dias (opcional, padrão: hoje)
+ * - data_inicio: DD-MM-YYYY ou YYYY-MM-DD (para período customizado)
+ * - data_fim: DD-MM-YYYY ou YYYY-MM-DD (para período customizado)
  */
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const barbeiroNome = searchParams.get('barbeiro_nome')
     const periodo = searchParams.get('periodo') || 'hoje'
+    const dataInicioParam = searchParams.get('data_inicio')
+    const dataFimParam = searchParams.get('data_fim')
 
     if (!barbeiroNome) {
       return NextResponse.json({
@@ -40,43 +44,95 @@ export async function GET(request: NextRequest) {
       }, { status: 404 })
     }
 
+    // Função auxiliar para formatar data
+    const formatarData = (date: Date): string => {
+      const [year, month, day] = date.toISOString().split('T')[0].split('-')
+      return `${day}/${month}/${year}`
+    }
+
+    // Função auxiliar para parsear data customizada
+    const parsearDataCustomizada = (dataStr: string): Date => {
+      if (dataStr.includes('-')) {
+        const partes = dataStr.split('-')
+        if (partes[0].length === 4) {
+          // YYYY-MM-DD
+          return new Date(`${partes[0]}-${partes[1]}-${partes[2]}`)
+        } else {
+          // DD-MM-YYYY
+          return new Date(`${partes[2]}-${partes[1]}-${partes[0]}`)
+        }
+      }
+      return new Date(dataStr)
+    }
+
     // Calcular período
     const hoje = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
     let dataInicio: string
     let dataFim: string
     let descricaoPeriodo: string
 
-    if (periodo === 'hoje') {
-      const [year, month, day] = hoje.toISOString().split('T')[0].split('-')
-      dataInicio = `${day}/${month}/${year}`
+    // Período customizado com data_inicio e data_fim
+    if (dataInicioParam && dataFimParam) {
+      const inicio = parsearDataCustomizada(dataInicioParam)
+      const fim = parsearDataCustomizada(dataFimParam)
+      dataInicio = formatarData(inicio)
+      dataFim = formatarData(fim)
+      descricaoPeriodo = `período customizado (${dataInicio} a ${dataFim})`
+    } else if (periodo === 'hoje') {
+      dataInicio = formatarData(hoje)
       dataFim = dataInicio
       descricaoPeriodo = `hoje (${dataInicio})`
+    } else if (periodo === 'amanha') {
+      const amanha = new Date(hoje)
+      amanha.setDate(hoje.getDate() + 1)
+      dataInicio = formatarData(amanha)
+      dataFim = dataInicio
+      descricaoPeriodo = `amanhã (${dataInicio})`
     } else if (periodo === 'semana') {
       // Domingo até Sábado da semana atual
       const inicioSemana = new Date(hoje)
       inicioSemana.setDate(hoje.getDate() - hoje.getDay())
       const fimSemana = new Date(inicioSemana)
       fimSemana.setDate(inicioSemana.getDate() + 6)
-
-      const [yI, mI, dI] = inicioSemana.toISOString().split('T')[0].split('-')
-      const [yF, mF, dF] = fimSemana.toISOString().split('T')[0].split('-')
-      dataInicio = `${dI}/${mI}/${yI}`
-      dataFim = `${dF}/${mF}/${yF}`
+      dataInicio = formatarData(inicioSemana)
+      dataFim = formatarData(fimSemana)
       descricaoPeriodo = `esta semana (${dataInicio} a ${dataFim})`
+    } else if (periodo === 'semana_que_vem') {
+      const proximoDomingo = new Date(hoje)
+      proximoDomingo.setDate(hoje.getDate() + (7 - hoje.getDay()))
+      const proximoSabado = new Date(proximoDomingo)
+      proximoSabado.setDate(proximoDomingo.getDate() + 6)
+      dataInicio = formatarData(proximoDomingo)
+      dataFim = formatarData(proximoSabado)
+      descricaoPeriodo = `próxima semana (${dataInicio} a ${dataFim})`
     } else if (periodo === 'mes') {
-      // Mês atual
       const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
       const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
-
-      const [yI, mI, dI] = inicioMes.toISOString().split('T')[0].split('-')
-      const [yF, mF, dF] = fimMes.toISOString().split('T')[0].split('-')
-      dataInicio = `${dI}/${mI}/${yI}`
-      dataFim = `${dF}/${mF}/${yF}`
+      dataInicio = formatarData(inicioMes)
+      dataFim = formatarData(fimMes)
       descricaoPeriodo = `este mês (${dataInicio} a ${dataFim})`
+    } else if (periodo === 'mes_que_vem') {
+      const inicioProximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1)
+      const fimProximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 2, 0)
+      dataInicio = formatarData(inicioProximoMes)
+      dataFim = formatarData(fimProximoMes)
+      descricaoPeriodo = `próximo mês (${dataInicio} a ${dataFim})`
+    } else if (periodo === 'proximos7dias') {
+      const fim7dias = new Date(hoje)
+      fim7dias.setDate(hoje.getDate() + 6)
+      dataInicio = formatarData(hoje)
+      dataFim = formatarData(fim7dias)
+      descricaoPeriodo = `próximos 7 dias (${dataInicio} a ${dataFim})`
+    } else if (periodo === 'proximos30dias') {
+      const fim30dias = new Date(hoje)
+      fim30dias.setDate(hoje.getDate() + 29)
+      dataInicio = formatarData(hoje)
+      dataFim = formatarData(fim30dias)
+      descricaoPeriodo = `próximos 30 dias (${dataInicio} a ${dataFim})`
     } else {
       return NextResponse.json({
         success: false,
-        message: 'Período inválido. Use: hoje, semana ou mes'
+        message: 'Período inválido. Use: hoje, amanha, semana, semana_que_vem, mes, mes_que_vem, proximos7dias, proximos30dias ou forneça data_inicio e data_fim'
       }, { status: 400 })
     }
 

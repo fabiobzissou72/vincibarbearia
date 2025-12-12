@@ -458,12 +458,12 @@ function ClientesPageContent() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 md:p-6 space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-white">Clientes</h1>
-          <p className="text-purple-300">Total: {totalClientes} clientes cadastrados</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-white">Clientes</h1>
+          <p className="text-sm md:text-base text-purple-300">Total: {totalClientes} clientes cadastrados</p>
         </div>
         <button
           onClick={() => {
@@ -477,7 +477,7 @@ function ClientesPageContent() {
               is_vip: false
             })
           }}
-          className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+          className="w-full sm:w-auto flex items-center justify-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
         >
           <Plus className="w-4 h-4" />
           <span>Novo Cliente</span>
@@ -486,9 +486,9 @@ function ClientesPageContent() {
 
       {/* Busca e Filtros */}
       <Card className="bg-slate-800/50 border-slate-700/50">
-        <CardContent className="p-4">
-          <div className="space-y-4">
-            <div className="flex items-center space-x-4">
+        <CardContent className="p-3 md:p-4">
+          <div className="space-y-3 md:space-y-4">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
                 <input
@@ -497,7 +497,7 @@ function ClientesPageContent() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white placeholder-slate-500"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white placeholder-slate-500 text-sm md:text-base"
                 />
               </div>
 
@@ -508,7 +508,7 @@ function ClientesPageContent() {
                   setCurrentPage(1)
                   loadClientes(searchTerm, e.target.value, 1)
                 }}
-                className="px-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white"
+                className="px-4 py-2 bg-slate-700/50 border border-slate-600/50 rounded-lg text-white text-sm md:text-base"
               >
                 <option value="">Todos os Barbeiros</option>
                 {profissionais.map(prof => (
@@ -518,22 +518,22 @@ function ClientesPageContent() {
 
               <button
                 onClick={handleSearch}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm md:text-base"
               >
                 Buscar
               </button>
             </div>
 
             {/* Filtros VIP / Todos */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 w-full md:w-auto">
                 <button
                   onClick={() => {
                     setFiltroVIP(false)
                     setCurrentPage(1)
                     router.push('/dashboard/clientes')
                   }}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                  className={`flex-1 md:flex-none flex items-center justify-center space-x-2 px-3 md:px-4 py-2 rounded-lg transition-colors text-sm md:text-base ${
                     !filtroVIP
                       ? 'bg-purple-600 text-white'
                       : 'bg-slate-700/50 text-slate-300 hover:bg-slate-600/50'
@@ -549,23 +549,23 @@ function ClientesPageContent() {
                     setCurrentPage(1)
                     router.push('/dashboard/clientes?filter=vip')
                   }}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                  className={`flex-1 md:flex-none flex items-center justify-center space-x-2 px-3 md:px-4 py-2 rounded-lg transition-colors text-sm md:text-base ${
                     filtroVIP
                       ? 'bg-gradient-to-r from-yellow-600 to-orange-600 text-white'
                       : 'bg-slate-700/50 text-slate-300 hover:bg-slate-600/50'
                   }`}
                 >
                   <Star className="w-4 h-4" />
-                  <span>Apenas VIPs</span>
+                  <span>VIPs</span>
                 </button>
               </div>
 
-              <div className="text-sm text-slate-400">
+              <div className="text-xs md:text-sm text-slate-400">
                 {filtroVIP && <span className="text-yellow-400">Mostrando clientes VIP (marcados manualmente ou com 5+ visitas)</span>}
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-sm text-slate-400">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs md:text-sm text-slate-400">
               <div className="flex items-center space-x-2">
                 <Users className="w-4 h-4" />
                 <span>Mostrando {clientes.length} de {totalClientes} clientes</span>
@@ -589,24 +589,24 @@ function ClientesPageContent() {
         ) : (
           clientes.map((cliente) => (
             <Card key={cliente.id} className="bg-purple-800/30 border-purple-700/50 hover:bg-purple-800/40 transition-colors">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4 flex-1">
-                    <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-lg">
+              <CardContent className="p-3 md:p-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-0 sm:justify-between">
+                  <div className="flex items-center space-x-3 md:space-x-4 flex-1 w-full">
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white font-bold text-base md:text-lg">
                         {cliente.nome_completo?.charAt(0)?.toUpperCase() || '?'}
                       </span>
                     </div>
 
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <span className="font-medium text-white text-lg">{cliente.nome_completo || 'Nome não informado'}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1 flex-wrap">
+                        <span className="font-medium text-white text-base md:text-lg break-words">{cliente.nome_completo || 'Nome não informado'}</span>
                         {cliente.is_vip && (
-                          <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                          <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 flex-shrink-0" />
                         )}
                       </div>
 
-                      <div className="flex items-center space-x-4 text-sm text-purple-300">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs md:text-sm text-purple-300">
                         {cliente.telefone && (
                           <span className="flex items-center space-x-1">
                             <Phone className="w-3 h-3" />
@@ -634,7 +634,7 @@ function ClientesPageContent() {
                       )}
 
                       {/* Mostrar número de visitas e tipo de VIP */}
-                      <div className="mt-1 text-sm flex items-center gap-3">
+                      <div className="mt-1 text-xs md:text-sm flex flex-wrap items-center gap-2 md:gap-3">
                         {clientesVisitas[cliente.id] !== undefined && (
                           <span className={`${
                             clientesVisitas[cliente.id] >= 5
@@ -645,7 +645,7 @@ function ClientesPageContent() {
                           </span>
                         )}
                         {cliente.is_vip && (
-                          <span className="text-yellow-400 font-semibold bg-yellow-400/10 px-2 py-0.5 rounded">
+                          <span className="text-yellow-400 font-semibold bg-yellow-400/10 px-2 py-0.5 rounded text-xs">
                             ⭐ VIP Manual
                           </span>
                         )}
@@ -653,27 +653,27 @@ function ClientesPageContent() {
                     </div>
                   </div>
 
-                  <div className="flex space-x-2">
+                  <div className="flex gap-2 w-full sm:w-auto justify-end">
                     <button
                       onClick={() => {
                         setClienteParaMensagem(cliente)
                         setMensagem('')
                       }}
-                      className="p-2 text-green-300 hover:text-white hover:bg-green-700/50 rounded-lg transition-colors"
+                      className="flex-1 sm:flex-none p-2 text-green-300 hover:text-white hover:bg-green-700/50 rounded-lg transition-colors"
                       title="Enviar mensagem"
                     >
                       <Send className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleEdit(cliente)}
-                      className="p-2 text-purple-300 hover:text-white hover:bg-purple-700/50 rounded-lg transition-colors"
+                      className="flex-1 sm:flex-none p-2 text-purple-300 hover:text-white hover:bg-purple-700/50 rounded-lg transition-colors"
                       title="Editar cliente"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDelete(cliente.id)}
-                      className="p-2 text-red-300 hover:text-white hover:bg-red-700/50 rounded-lg transition-colors"
+                      className="flex-1 sm:flex-none p-2 text-red-300 hover:text-white hover:bg-red-700/50 rounded-lg transition-colors"
                       title="Excluir cliente"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -744,25 +744,25 @@ function ClientesPageContent() {
 
       {/* Modal de Edição/Adicionar */}
       {(editingCliente || showAddForm) && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-slate-800 rounded-lg p-6 max-w-2xl w-full border border-slate-700 my-8">
-            <h2 className="text-2xl font-bold text-white mb-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 md:p-4 overflow-y-auto">
+          <div className="bg-slate-800 rounded-lg p-4 md:p-6 max-w-2xl w-full border border-slate-700 my-4 md:my-8">
+            <h2 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6">
               {editingCliente ? 'Editar Cliente' : 'Novo Cliente'}
             </h2>
 
-            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+            <div className="space-y-4 md:space-y-6 max-h-[70vh] overflow-y-auto pr-2">
               {/* Dados Pessoais */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-purple-400">Dados Pessoais</h3>
+              <div className="space-y-3 md:space-y-4">
+                <h3 className="text-base md:text-lg font-semibold text-purple-400">Dados Pessoais</h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   <div>
-                    <label className="block text-sm text-slate-400 mb-1">Nome Completo *</label>
+                    <label className="block text-xs md:text-sm text-slate-400 mb-1">Nome Completo *</label>
                     <input
                       type="text"
                       value={editForm.nome_completo}
                       onChange={(e) => setEditForm({ ...editForm, nome_completo: e.target.value })}
-                      className="w-full bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
+                      className="w-full bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white text-sm md:text-base"
                       required
                     />
                   </div>
@@ -894,10 +894,10 @@ function ClientesPageContent() {
               </div>
 
               {/* Preferências de Serviço */}
-              <div className="space-y-4 border-t border-slate-700 pt-4">
-                <h3 className="text-lg font-semibold text-purple-400">Preferências de Serviço</h3>
+              <div className="space-y-3 md:space-y-4 border-t border-slate-700 pt-3 md:pt-4">
+                <h3 className="text-base md:text-lg font-semibold text-purple-400">Preferências de Serviço</h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">Estilo de Cabelo</label>
                     <input
@@ -1012,8 +1012,8 @@ function ClientesPageContent() {
               </div>
 
               {/* Histórico e Memória */}
-              <div className="space-y-4 border-t border-slate-700 pt-4">
-                <h3 className="text-lg font-semibold text-purple-400">Histórico e Memória</h3>
+              <div className="space-y-3 md:space-y-4 border-t border-slate-700 pt-3 md:pt-4">
+                <h3 className="text-base md:text-lg font-semibold text-purple-400">Histórico e Memória</h3>
 
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Memória de Longo Prazo</label>
@@ -1028,8 +1028,8 @@ function ClientesPageContent() {
               </div>
 
               {/* Observações */}
-              <div className="space-y-4 border-t border-slate-700 pt-4">
-                <h3 className="text-lg font-semibold text-purple-400">Observações Gerais</h3>
+              <div className="space-y-3 md:space-y-4 border-t border-slate-700 pt-3 md:pt-4">
+                <h3 className="text-base md:text-lg font-semibold text-purple-400">Observações Gerais</h3>
 
                 <div>
                   <label className="block text-sm text-slate-400 mb-1">Observações</label>
@@ -1057,10 +1057,10 @@ function ClientesPageContent() {
               </div>
             </div>
 
-            <div className="flex space-x-3 mt-6 border-t border-slate-700 pt-4">
+            <div className="flex flex-col sm:flex-row gap-3 mt-4 md:mt-6 border-t border-slate-700 pt-3 md:pt-4">
               <button
                 onClick={editingCliente ? handleSaveEdit : handleAddCliente}
-                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm md:text-base"
               >
                 {editingCliente ? 'Salvar Alterações' : 'Adicionar Cliente'}
               </button>
@@ -1069,7 +1069,7 @@ function ClientesPageContent() {
                   setEditingCliente(null)
                   setShowAddForm(false)
                 }}
-                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors"
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg transition-colors text-sm md:text-base"
               >
                 Cancelar
               </button>
