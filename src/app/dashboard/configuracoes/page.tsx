@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Settings, Building2, Clock, DollarSign, Bell, Users, Save, Link } from 'lucide-react'
+import { Settings, Building2, Clock, DollarSign, Bell, Users, Save, Link, Key, Eye, EyeOff, Copy, RefreshCw, AlertTriangle } from 'lucide-react'
+import { gerarTokenAPI } from '@/lib/auth'
 
 interface HorarioDia {
   abertura: string
@@ -28,6 +29,7 @@ interface Configuracao {
   aceita_agendamento_online: boolean
   comissao_barbeiro_percentual: number
   webhook_url: string
+  api_token?: string
   prazo_cancelamento_horas?: number
   notif_confirmacao?: boolean
   notif_lembrete_24h?: boolean
@@ -74,6 +76,7 @@ export default function ConfiguracoesPage() {
   })
   const [loading, setLoading] = useState(true)
   const [salvando, setSalvando] = useState(false)
+  const [mostrarToken, setMostrarToken] = useState(false)
 
   useEffect(() => {
     loadConfig()
@@ -195,6 +198,25 @@ export default function ConfiguracoesPage() {
         }
       }
     })
+  }
+
+  const gerarNovoToken = async () => {
+    if (!confirm('⚠️ Isso vai revogar o token anterior. Todas as integrações precisarão ser atualizadas. Confirma?')) {
+      return
+    }
+
+    const novoToken = gerarTokenAPI()
+    setConfig({ ...config, api_token: novoToken })
+    alert('✅ Novo token gerado! Clique em Salvar Alterações para ativar.')
+  }
+
+  const copiarToken = () => {
+    if (config.api_token) {
+      navigator.clipboard.writeText(config.api_token)
+      alert('✅ Token copiado!')
+    } else {
+      alert('⚠️ Nenhum token gerado ainda. Clique em "Gerar Novo Token" primeiro.')
+    }
   }
 
   if (loading) {
@@ -481,6 +503,69 @@ export default function ConfiguracoesPage() {
               <p className="text-xs text-purple-400 mt-1">
                 Cliente deve cancelar com pelo menos {config.prazo_cancelamento_horas || 2}h de antecedência
               </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Segurança da API */}
+        <Card className="bg-purple-900/20 border-purple-700/50">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center space-x-2">
+              <Key className="w-5 h-5 text-purple-400" />
+              <span>Segurança da API</span>
+            </CardTitle>
+            <p className="text-sm text-purple-300 mt-1">
+              Token de autenticação para acesso às APIs externas
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="block text-sm text-purple-300 mb-1">Token API</label>
+              <div className="flex gap-2">
+                <input
+                  type={mostrarToken ? "text" : "password"}
+                  value={config.api_token || 'Nenhum token gerado'}
+                  readOnly
+                  className="flex-1 px-3 py-2 bg-slate-800 border border-purple-600/50 rounded text-white font-mono text-sm"
+                />
+                <button
+                  onClick={() => setMostrarToken(!mostrarToken)}
+                  className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+                  title={mostrarToken ? "Ocultar token" : "Mostrar token"}
+                >
+                  {mostrarToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={copiarToken}
+                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                  title="Copiar token"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={gerarNovoToken}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white rounded-lg transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Gerar Novo Token (Revoga o anterior)</span>
+            </button>
+
+            <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-4">
+              <div className="flex items-start space-x-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-yellow-200">
+                  <p className="font-medium mb-1">⚠️ Importante:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Guarde este token em local seguro</li>
+                    <li>Todas as APIs externas precisam deste token</li>
+                    <li>Use no header: <code className="bg-slate-800 px-1 rounded">Authorization: Bearer SEU_TOKEN</code></li>
+                    <li>Gerar novo token revoga o anterior imediatamente</li>
+                  </ul>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { extrairTokenDaRequest, verificarTokenAPI } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,6 +23,25 @@ export const dynamic = 'force-dynamic'
  */
 export async function DELETE(request: NextRequest) {
   try {
+    // 🔐 AUTENTICAÇÃO
+    const token = extrairTokenDaRequest(request)
+    if (!token) {
+      return NextResponse.json({
+        success: false,
+        message: 'Token de autorização não fornecido',
+        errors: ['Use o header: Authorization: Bearer SEU_TOKEN']
+      }, { status: 401 })
+    }
+
+    const { valido, erro } = await verificarTokenAPI(token)
+    if (!valido) {
+      return NextResponse.json({
+        success: false,
+        message: 'Token de autorização inválido',
+        errors: [erro || 'Token inválido ou expirado']
+      }, { status: 403 })
+    }
+
     const body = await request.json()
     const { agendamento_id, motivo, cancelado_por = 'cliente', forcar = false } = body
 

@@ -1,10 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { extrairTokenDaRequest, verificarTokenAPI } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    // 🔐 AUTENTICAÇÃO
+    const token = extrairTokenDaRequest(request)
+    if (!token) {
+      return NextResponse.json(
+        { success: false, error: 'Token de autorização não fornecido. Use: Authorization: Bearer SEU_TOKEN' },
+        { status: 401 }
+      )
+    }
+
+    const { valido, erro } = await verificarTokenAPI(token)
+    if (!valido) {
+      return NextResponse.json(
+        { success: false, error: erro },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
     const { agendamento_id, nova_data, nova_hora } = body
 
