@@ -262,3 +262,65 @@ export function extrairTokenDaRequest(request: Request): string | null {
 
   return token || null
 }
+
+/**
+ * Verifica se a requisição é interna (vem do próprio Next.js)
+ * Requisições internas não precisam de token
+ */
+export function isRequisicaoInterna(request: Request): boolean {
+  // Verificar se é uma requisição server-side do Next.js
+  const referer = request.headers.get('referer')
+  const host = request.headers.get('host')
+
+  // Se não tem referer, pode ser uma chamada server-side interna
+  if (!referer) {
+    // Verificar se tem o header x-middleware-subrequest (Next.js interno)
+    const isMiddlewareSubrequest = request.headers.get('x-middleware-subrequest')
+    if (isMiddlewareSubrequest) {
+      return true
+    }
+  }
+
+  // Se tem referer, verificar se vem do mesmo domínio
+  if (referer && host) {
+    try {
+      const refererUrl = new URL(referer)
+      return refererUrl.host === host
+    } catch {
+      return false
+    }
+  }
+
+  return false
+}
+
+/**
+ * Verifica autenticação considerando requisições internas
+ * Retorna { autorizado: true } se:
+ * - For requisição interna (do próprio dashboard)
+ * - Ou se tiver token válido
+ */
+export async function verificarAutenticacao(request: Request): Promise<{ autorizado: boolean; erro?: string }> {
+  // 1. Verificar se é requisição interna (do próprio sistema)
+  if (isRequisicaoInterna(request)) {
+    return { autorizado: true }
+  }
+
+  // 2. Se não é interna, exigir token
+  const token = extrairTokenDaRequest(request)
+
+  if (!token) {
+    return {
+      autorizado: false,
+      erro: 'Token de autorização não fornecido. Use: Authorization: Bearer SEU_TOKEN'
+    }
+  }
+
+  // 3. Validar token
+  const { valido, erro } = await verificarTokenAPI(token)
+
+  return {
+    autorizado: valido,
+    erro: erro
+  }
+}
