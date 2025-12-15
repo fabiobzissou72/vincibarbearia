@@ -627,7 +627,13 @@ export default function AgendamentosPage() {
 
       const result = await response.json()
 
-      if (!result.success) {
+      // Log detalhado do erro
+      if (!response.ok || !result.success) {
+        console.error('❌ ERRO AO CRIAR AGENDAMENTO:')
+        console.error('Status:', response.status)
+        console.error('Response completo:', result)
+        console.error('Debug:', result.debug)
+        console.error('Errors:', result.errors)
         alert(result.message || 'Erro ao criar agendamento')
         return
       }
