@@ -171,11 +171,43 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Pegar horário atual para filtrar horários passados (apenas se for hoje)
+    const agora = new Date()
+    const dataAtual = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    const isHoje = dataBR === dataAtual
+
+    // REGRA: Agendamento novo precisa de 30 minutos de antecedência
+    const ANTECEDENCIA_MINUTOS = 30
+
+    console.log('[DEBUG] Verificando horários - Data solicitada:', dataBR, 'Data atual:', dataAtual, 'É hoje?', isHoje)
+    if (isHoje) {
+      console.log('[DEBUG] Hora atual:', agora.toLocaleTimeString('pt-BR'))
+    }
+
     // Verificar disponibilidade de cada slot
     const horariosDisponiveis: string[] = []
     const horariosOcupados: any[] = []
 
     for (const slot of slots) {
+      // Se for hoje, verificar se o horário já passou + antecedência mínima
+      if (isHoje) {
+        const [horaSlot, minSlot] = slot.split(':').map(Number)
+        const horarioSlot = new Date()
+        horarioSlot.setHours(horaSlot, minSlot, 0, 0)
+
+        // Calcular horário mínimo permitido (agora + 30min)
+        const horarioMinimoPermitido = new Date(agora.getTime() + ANTECEDENCIA_MINUTOS * 60 * 1000)
+
+        if (horarioSlot < horarioMinimoPermitido) {
+          console.log(`[DEBUG] Horário ${slot} descartado - já passou ou muito próximo`)
+          horariosOcupados.push({
+            horario: slot,
+            motivo: 'Horário já passou ou muito próximo (mínimo 30min de antecedência)'
+          })
+          continue
+        }
+      }
+
       // Verificar se algum barbeiro está disponível neste horário
       let algumBarbeiroDisponivel = false
 
