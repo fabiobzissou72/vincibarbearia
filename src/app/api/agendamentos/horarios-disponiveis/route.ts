@@ -129,12 +129,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar agendamentos existentes para este dia
+    console.log('[DEBUG] 🔍 Buscando agendamentos para data:', dataBR)
+    console.log('[DEBUG] 🔍 Barbeiros selecionados:', profissionais.map(p => p.nome).join(', '))
+
     const { data: agendamentosExistentes, error: agendamentosError } = await supabase
       .from('agendamentos')
       .select(`
         id,
         hora_inicio,
         profissional_id,
+        data_agendamento,
+        status,
         profissionais (nome),
         agendamento_servicos (
           duracao_minutos,
@@ -145,11 +150,17 @@ export async function GET(request: NextRequest) {
       .in('status', ['agendado', 'confirmado', 'em_andamento'])
 
     if (agendamentosError) {
-      console.error('Erro ao buscar agendamentos:', agendamentosError)
+      console.error('❌ Erro ao buscar agendamentos:', agendamentosError)
     }
 
-    console.log('[DEBUG] Agendamentos encontrados:', agendamentosExistentes?.length || 0)
-    console.log('[DEBUG] Data buscada:', dataBR)
+    console.log('[DEBUG] ✅ Agendamentos encontrados:', agendamentosExistentes?.length || 0)
+    if (agendamentosExistentes && agendamentosExistentes.length > 0) {
+      console.log('[DEBUG] 📋 Detalhes dos agendamentos:')
+      agendamentosExistentes.forEach(ag => {
+        console.log(`  - ${ag.profissionais?.nome}: ${ag.hora_inicio} (${ag.status}) - Data no banco: "${ag.data_agendamento}"`)
+      })
+    }
+    console.log('[DEBUG] 🔎 Comparando com data buscada:', dataBR)
 
     // Gerar slots de horário (intervalos de 30min)
     const slots: string[] = []
