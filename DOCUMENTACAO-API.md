@@ -401,25 +401,60 @@ POST https://seu-dominio.vercel.app/api/barbeiros/cancelar-meu-agendamento
 
 **Endpoint:** `GET /api/barbeiros/listar`
 
-**Descrição:** Lista todos os barbeiros ativos.
+**Descrição:** Lista todos os barbeiros ativos com estatísticas de atendimentos e sistema de rodízio.
+
+**Query Parameters:**
+```
+?ativo=true    (Opcional) Filtra apenas barbeiros ativos (padrão: true)
+```
 
 **Resposta Sucesso (200):**
 ```json
 {
-  "success": true,
+  "total": 3,
+  "proximo_rodizio": {
+    "id": "uuid-1",
+    "nome": "Hiago",
+    "atendimentos_hoje": 2
+  },
   "barbeiros": [
     {
       "id": "uuid-1",
       "nome": "Hiago",
-      "ativo": true
+      "telefone": "11988888888",
+      "email": "hiago@vincebarbearia.com",
+      "especialidades": ["Corte", "Barba", "Coloração"],
+      "ativo": true,
+      "estatisticas": {
+        "total_atendimentos": 145,
+        "atendimentos_hoje": 2,
+        "total_concluidos": 132
+      }
     },
     {
       "id": "uuid-2",
       "nome": "Carlos",
-      "ativo": true
+      "telefone": "11977777777",
+      "email": "carlos@vincebarbearia.com",
+      "especialidades": ["Corte", "Barba", "Tratamentos"],
+      "ativo": true,
+      "estatisticas": {
+        "total_atendimentos": 98,
+        "atendimentos_hoje": 3,
+        "total_concluidos": 89
+      }
     }
-  ]
+  ],
+  "mensagem_para_cliente": "Temos 3 barbeiro(s) disponível(is). Escolha seu preferido ou deixe em branco para rodízio automático."
 }
+```
+
+**Exemplo de uso no N8N:**
+```bash
+curl https://seu-dominio.vercel.app/api/barbeiros/listar
+
+# Listar todos (inclusive inativos)
+curl https://seu-dominio.vercel.app/api/barbeiros/listar?ativo=false
 ```
 
 ---

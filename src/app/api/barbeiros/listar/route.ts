@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     // 1. Buscar barbeiros do banco
     let query = supabase
       .from('profissionais')
-      .select('id, nome, telefone, email, especialidade, ativo')
+      .select('id, nome, telefone, email, especialidades, ativo')
       .order('nome', { ascending: true })
 
     // Filtrar apenas ativos se solicitado
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
           nome: barbeiro.nome,
           telefone: barbeiro.telefone,
           email: barbeiro.email,
-          especialidade: barbeiro.especialidade,
+          especialidades: barbeiro.especialidades,
           ativo: barbeiro.ativo,
           estatisticas: {
             total_atendimentos: totalGeral || 0,
