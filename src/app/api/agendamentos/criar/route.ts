@@ -26,9 +26,12 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
+    console.log('🚀 [CRIAR AGENDAMENTO] Iniciando...')
+
     // 🔐 AUTENTICAÇÃO (permite requisições internas do dashboard sem token)
     const { autorizado, erro } = await verificarAutenticacao(request)
     if (!autorizado) {
+      console.error('❌ [CRIAR AGENDAMENTO] Autenticação falhou:', erro)
       return NextResponse.json({
         success: false,
         message: 'Não autorizado',
@@ -36,7 +39,10 @@ export async function POST(request: NextRequest) {
       }, { status: 401 })
     }
 
+    console.log('✅ [CRIAR AGENDAMENTO] Autenticado')
+
     const body = await request.json()
+    console.log('📦 [CRIAR AGENDAMENTO] Body recebido:', JSON.stringify(body, null, 2))
     const {
       cliente_nome,
       telefone,
@@ -396,11 +402,17 @@ export async function POST(request: NextRequest) {
     }, { status: 201 })
 
   } catch (error) {
-    console.error('Erro ao criar agendamento:', error)
+    console.error('❌ ERRO CRÍTICO ao criar agendamento:', error)
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'N/A')
     return NextResponse.json({
       success: false,
       message: 'Erro interno do servidor',
-      errors: [error instanceof Error ? error.message : 'Erro desconhecido']
+      errors: [error instanceof Error ? error.message : 'Erro desconhecido'],
+      debug: {
+        error_type: error instanceof Error ? error.constructor.name : typeof error,
+        error_message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : null
+      }
     }, { status: 500 })
   }
 }
