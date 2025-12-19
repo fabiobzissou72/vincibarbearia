@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { produto_id, ...dadosAtualizacao } = body
+    const { produto_id, ...dadosAtualizacaoRaw } = body
 
     // Validações
     if (!produto_id) {
@@ -63,13 +63,33 @@ export async function POST(request: NextRequest) {
       }, { status: 404 })
     }
 
-    // Validar preço se fornecido
+    // Processar e validar dados de atualização
+    const dadosAtualizacao: any = { ...dadosAtualizacaoRaw }
+
+    // Validar e converter preço se fornecido
     if (dadosAtualizacao.preco !== undefined) {
-      if (typeof dadosAtualizacao.preco !== 'number' || dadosAtualizacao.preco < 0) {
+      const preco = typeof dadosAtualizacao.preco === 'string'
+        ? parseFloat(dadosAtualizacao.preco)
+        : dadosAtualizacao.preco
+
+      if (isNaN(preco) || preco < 0) {
         return NextResponse.json({
           success: false,
           error: 'preco deve ser um número positivo'
         }, { status: 400 })
+      }
+
+      dadosAtualizacao.preco = preco
+    }
+
+    // Converter estoque se fornecido
+    if (dadosAtualizacao.estoque !== undefined) {
+      const estoque = typeof dadosAtualizacao.estoque === 'string'
+        ? parseInt(dadosAtualizacao.estoque)
+        : dadosAtualizacao.estoque
+
+      if (!isNaN(estoque)) {
+        dadosAtualizacao.estoque = estoque
       }
     }
 

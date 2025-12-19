@@ -1,0 +1,809 @@
+openapi: 3.0.3
+info:
+  title: Vinci Barbearia API
+  description: |
+    API completa para gerenciamento de barbearia incluindo agendamentos, barbeiros, clientes, produtos, planos e webhooks.
+
+    ## Autenticação
+    A maioria dos endpoints requer autenticação via Bearer Token no header:
+    ```
+    Authorization: Bearer SEU_TOKEN_AQUI
+    ```
+
+    ## Formato de Datas
+    - Datas são no formato brasileiro: DD/MM/YYYY
+    - Horários são no formato: HH:MM (24h)
+
+    ## Webhooks
+    O sistema suporta dois tipos de webhooks:
+    1. **Webhook Global**: Configurado na tabela `configuracoes`, dispara para todos os eventos
+    2. **Webhooks de Barbeiros**: Webhooks personalizados por profissional
+
+  version: 2.0.0
+  contact:
+    name: Vinci Barbearia
+    url: https://vincibarbearia.vercel.app
+
+servers:
+  - url: https://vincibarbearia.vercel.app/api
+    description: Produção
+  - url: http://localhost:3000/api
+    description: Desenvolvimento
+
+tags:
+  - name: Agendamentos
+    description: Gerenciamento de agendamentos
+  - name: Barbeiros
+    description: APIs específicas para barbeiros
+  - name: Produtos
+    description: Gerenciamento de produtos
+  - name: Planos
+    description: Gerenciamento de planos de fidelidade
+  - name: Webhooks
+    description: Configuração de webhooks
+  - name: Cron
+    description: Endpoints para tarefas agendadas
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token de autenticação da API
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Mensagem de erro
+
+    Agendamento:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        data_agendamento:
+          type: string
+          example: "19/12/2025"
+        hora_inicio:
+          type: string
+          example: "14:30"
+        nome_cliente:
+          type: string
+        telefone:
+          type: string
+        valor:
+          type: number
+          format: float
+        status:
+          type: string
+          enum: [agendado, confirmado, em_andamento, concluido, cancelado]
+
+paths:
+  /agendamentos/cancelar:
+    delete:
+      tags:
+        - Agendamentos
+      summary: Cancelar agendamento
+      description: |
+        Cancela um agendamento com validação de prazo (2h antes por padrão).
+
+        **Regras:**
+        - Cliente pode cancelar até 2h antes
+        - Admin/Barbeiro podem cancelar a qualquer momento
+        - Sistema registra o cancelamento no histórico
+        - Dispara webhooks configurados
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - agendamento_id
+              properties:
+                agendamento_id:
+                  type: string
+                  format: uuid
+                  description: ID do agendamento
+                motivo:
+                  type: string
+                  description: Motivo do cancelamento
+                cancelado_por:
+                  type: string
+                  enum: [cliente, barbeiro, admin, sistema]
+                  default: cliente
+                forcar:
+                  type: boolean
+                  description: Ignora validação de prazo (apenas admin)
+                  default: false
+            examples:
+              cancelamento_cliente:
+                summary: Cancelamento por cliente
+                value:
+                  agendamento_id: "123e4567-e89b-12d3-a456-426614174000"
+                  motivo: "Imprevisto"
+                  cancelado_por: "cliente"
+              cancelamento_admin:
+                summary: Cancelamento forçado por admin
+                value:
+                  agendamento_id: "123e4567-e89b-12d3-a456-426614174000"
+                  motivo: "Barbeiro doente"
+                  cancelado_por: "admin"
+                  forcar: true
+      responses:
+        '200':
+          description: Agendamento cancelado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Agendamento cancelado com sucesso!
+                  data:
+                    type: object
+                    properties:
+                      agendamento_id:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        example: cancelado
+                      cancelado_por:
+                        type: string
+                      motivo:
+                        type: string
+                      horas_antecedencia:
+                        type: string
+                      cliente:
+                        type: string
+                      barbeiro:
+                        type: string
+                      data:
+                        type: string
+                      hora:
+                        type: string
+                      valor_liberado:
+                        type: number
+        '400':
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                prazo_insuficiente:
+                  summary: Prazo insuficiente para cancelamento
+                  value:
+                    success: false
+                    message: "Cancelamento não permitido. É necessário cancelar com pelo menos 2h de antecedência"
+                    errors: ["Faltam apenas 1.5h para o agendamento"]
+        '401':
+          description: Não autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Agendamento não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /barbeiros/agendamentos-semana:
+    get:
+      tags:
+        - Barbeiros
+      summary: Buscar agendamentos da semana do barbeiro
+      description: |
+        Retorna os agendamentos da SEMANA ATUAL para um barbeiro específico.
+
+        **Aceita três formas de busca:**
+        - Por telefone
+        - Por nome do barbeiro
+        - Por ID do barbeiro
+      parameters:
+        - name: telefone
+          in: query
+          description: Telefone do barbeiro (com ou sem DDI)
+          schema:
+            type: string
+            example: "5511999999999"
+        - name: barbeiro_nome
+          in: query
+          description: Nome do barbeiro
+          schema:
+            type: string
+            example: "Hiago"
+        - name: barbeiro_id
+          in: query
+          description: UUID do barbeiro
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Agendamentos da semana retornados com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  barbeiro:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      nome:
+                        type: string
+                      telefone:
+                        type: string
+                  periodo:
+                    type: object
+                    properties:
+                      inicio:
+                        type: string
+                        example: "15/12/2025"
+                      fim:
+                        type: string
+                        example: "21/12/2025"
+                      semana_atual:
+                        type: boolean
+                  resumo:
+                    type: object
+                    properties:
+                      total_agendamentos:
+                        type: integer
+                      faturamento_total:
+                        type: number
+                      confirmados:
+                        type: integer
+                      concluidos:
+                        type: integer
+                      compareceram:
+                        type: integer
+                      proximos:
+                        type: integer
+                  agendamentos_por_dia:
+                    type: object
+                  resumo_por_dia:
+                    type: array
+                    items:
+                      type: object
+                  proximos_agendamentos:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agendamento'
+        '400':
+          description: Parâmetros inválidos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: É obrigatório fornecer telefone, barbeiro_nome ou barbeiro_id
+        '404':
+          description: Barbeiro não encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Barbeiro não encontrado
+                  message:
+                    type: string
+                    example: Barbeiro não cadastrado no sistema
+
+  /barbeiros/faturamento-mes:
+    get:
+      tags:
+        - Barbeiros
+      summary: Faturamento do barbeiro no mês
+      description: |
+        Retorna o faturamento do MÊS ATUAL (ou mês especificado) para um barbeiro específico.
+
+        **Aceita três formas de busca:**
+        - Por telefone
+        - Por nome do barbeiro
+        - Por ID do barbeiro
+      parameters:
+        - name: telefone
+          in: query
+          description: Telefone do barbeiro (com ou sem DDI)
+          schema:
+            type: string
+            example: "5511999999999"
+        - name: barbeiro_nome
+          in: query
+          description: Nome do barbeiro
+          schema:
+            type: string
+            example: "Hiago"
+        - name: barbeiro_id
+          in: query
+          description: UUID do barbeiro
+          schema:
+            type: string
+            format: uuid
+        - name: mes
+          in: query
+          description: Mês no formato MM (01-12). Padrão mês atual
+          schema:
+            type: string
+            example: "12"
+        - name: ano
+          in: query
+          description: Ano no formato YYYY. Padrão ano atual
+          schema:
+            type: string
+            example: "2025"
+      responses:
+        '200':
+          description: Faturamento retornado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  barbeiro:
+                    type: object
+                  periodo:
+                    type: object
+                    properties:
+                      mes:
+                        type: integer
+                      ano:
+                        type: integer
+                      nome_mes:
+                        type: string
+                      data_inicio:
+                        type: string
+                      data_fim:
+                        type: string
+                  faturamento:
+                    type: object
+                    properties:
+                      bruto:
+                        type: number
+                      confirmado:
+                        type: number
+                      perdido:
+                        type: number
+                  estatisticas:
+                    type: object
+                  faturamento_por_dia:
+                    type: array
+                  top_servicos:
+                    type: array
+
+  /produtos/criar:
+    post:
+      tags:
+        - Produtos
+      summary: Criar novo produto
+      description: |
+        Cria um novo produto no catálogo.
+
+        **Nota:** Os valores numéricos aceitam tanto number quanto string (ex: 45.00 ou "45.00")
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nome
+                - preco
+              properties:
+                nome:
+                  type: string
+                  description: Nome do produto
+                descricao:
+                  type: string
+                  description: Descrição do produto
+                preco:
+                  oneOf:
+                    - type: number
+                    - type: string
+                  description: Preço do produto (aceita number ou string)
+                  example: 45.00
+                categoria:
+                  type: string
+                  description: Categoria do produto
+                estoque:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                  description: Quantidade em estoque
+                  default: 0
+                ativo:
+                  type: boolean
+                  description: Se o produto está ativo
+                  default: true
+            examples:
+              produto_number:
+                summary: Valores como number
+                value:
+                  nome: "Pomada Modeladora"
+                  preco: 45.00
+                  estoque: 10
+              produto_string:
+                summary: Valores como string (N8N)
+                value:
+                  nome: "Pomada Modeladora"
+                  preco: "45.00"
+                  estoque: "10"
+      responses:
+        '201':
+          description: Produto criado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Produto criado com sucesso!
+                  produto:
+                    type: object
+        '400':
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Não autorizado
+
+  /produtos/atualizar:
+    post:
+      tags:
+        - Produtos
+      summary: Atualizar produto existente
+      description: |
+        Atualiza dados de um produto existente (preço, estoque, status, etc).
+
+        **Nota:** Os valores numéricos aceitam tanto number quanto string
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - produto_id
+              properties:
+                produto_id:
+                  type: string
+                  format: uuid
+                  description: ID do produto
+                nome:
+                  type: string
+                descricao:
+                  type: string
+                preco:
+                  oneOf:
+                    - type: number
+                    - type: string
+                  description: Novo preço
+                categoria:
+                  type: string
+                estoque:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                  description: Nova quantidade em estoque
+                ativo:
+                  type: boolean
+            examples:
+              atualizar_preco:
+                summary: Atualizar apenas preço
+                value:
+                  produto_id: "123e4567-e89b-12d3-a456-426614174000"
+                  preco: "50.00"
+              atualizar_estoque:
+                summary: Atualizar estoque
+                value:
+                  produto_id: "123e4567-e89b-12d3-a456-426614174000"
+                  estoque: "15"
+      responses:
+        '200':
+          description: Produto atualizado com sucesso
+        '400':
+          description: Dados inválidos
+        '404':
+          description: Produto não encontrado
+
+  /planos/criar:
+    post:
+      tags:
+        - Planos
+      summary: Criar novo plano
+      description: |
+        Cria um novo plano de fidelidade.
+
+        **Nota:** Todos os valores numéricos aceitam tanto number quanto string
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nome
+                - valor_original
+                - valor_total
+                - quantidade_servicos
+                - validade_dias
+              properties:
+                nome:
+                  type: string
+                descricao:
+                  type: string
+                valor_original:
+                  oneOf:
+                    - type: number
+                    - type: string
+                  description: Valor se fosse comprar serviços separados
+                valor_total:
+                  oneOf:
+                    - type: number
+                    - type: string
+                  description: Valor do plano (com desconto)
+                quantidade_servicos:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                  description: Quantidade de serviços inclusos
+                validade_dias:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                  description: Dias de validade do plano
+                ativo:
+                  type: boolean
+                  default: true
+            examples:
+              plano_mensal:
+                summary: Plano mensal
+                value:
+                  nome: "Plano Mensal"
+                  descricao: "4 cortes + 2 barbas"
+                  valor_original: "400.00"
+                  valor_total: "300.00"
+                  quantidade_servicos: "6"
+                  validade_dias: "30"
+      responses:
+        '201':
+          description: Plano criado com sucesso
+        '400':
+          description: Dados inválidos
+
+  /planos/atualizar:
+    post:
+      tags:
+        - Planos
+      summary: Atualizar plano existente
+      description: |
+        Atualiza dados de um plano existente.
+
+        **Nota:** Todos os valores numéricos aceitam tanto number quanto string.
+        A economia é recalculada automaticamente.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - plano_id
+              properties:
+                plano_id:
+                  type: string
+                  format: uuid
+                nome:
+                  type: string
+                descricao:
+                  type: string
+                valor_original:
+                  oneOf:
+                    - type: number
+                    - type: string
+                valor_total:
+                  oneOf:
+                    - type: number
+                    - type: string
+                quantidade_servicos:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                validade_dias:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                ativo:
+                  type: boolean
+      responses:
+        '200':
+          description: Plano atualizado com sucesso
+        '400':
+          description: Dados inválidos
+        '404':
+          description: Plano não encontrado
+
+  /barbeiros/configurar-webhook:
+    post:
+      tags:
+        - Webhooks
+      summary: Configurar webhook personalizado para barbeiro
+      description: |
+        Configura um webhook personalizado para um barbeiro específico.
+        O barbeiro receberá notificações sobre seus próprios agendamentos.
+
+        **Eventos disponíveis:**
+        - `novo_agendamento`: Disparado quando um novo agendamento é criado
+        - `cancelamento`: Disparado quando um agendamento é cancelado
+        - `confirmacao`: Disparado quando um agendamento é confirmado
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - barbeiro_id
+                - webhook_url
+              properties:
+                barbeiro_id:
+                  type: string
+                  format: uuid
+                  description: ID do barbeiro
+                webhook_url:
+                  type: string
+                  format: uri
+                  description: URL do webhook (N8N, Zapier, etc)
+                eventos:
+                  type: array
+                  items:
+                    type: string
+                    enum: [novo_agendamento, cancelamento, confirmacao]
+                  description: Array de eventos. Se não informado, todos os eventos serão ativos
+                  default: [novo_agendamento, cancelamento, confirmacao]
+                ativo:
+                  type: boolean
+                  description: Se o webhook está ativo
+                  default: true
+            examples:
+              webhook_completo:
+                summary: Webhook com todos os eventos
+                value:
+                  barbeiro_id: "123e4567-e89b-12d3-a456-426614174000"
+                  webhook_url: "https://n8n.exemplo.com/webhook/barbeiro-1"
+                  eventos: ["novo_agendamento", "cancelamento", "confirmacao"]
+                  ativo: true
+              webhook_cancelamento:
+                summary: Webhook apenas para cancelamentos
+                value:
+                  barbeiro_id: "123e4567-e89b-12d3-a456-426614174000"
+                  webhook_url: "https://n8n.exemplo.com/webhook/cancelamentos"
+                  eventos: ["cancelamento"]
+      responses:
+        '200':
+          description: Webhook atualizado com sucesso
+        '201':
+          description: Webhook criado com sucesso
+        '400':
+          description: Dados inválidos
+        '404':
+          description: Barbeiro não encontrado
+
+  /cron/lembretes:
+    get:
+      tags:
+        - Cron
+      summary: Enviar lembretes automáticos
+      description: |
+        Endpoint para cron jobs enviarem lembretes automaticamente.
+
+        **Este endpoint requer autenticação especial via header:**
+        ```
+        Authorization: Bearer CRON_SECRET
+        ```
+
+        Onde `CRON_SECRET` é a variável de ambiente configurada no servidor.
+
+        **Responsabilidades:**
+        1. Verificar agendamentos que precisam de lembrete 24h antes
+        2. Verificar agendamentos que precisam de lembrete 2h antes
+        3. Verificar agendamentos para follow-up 3 dias após
+        4. Verificar agendamentos para follow-up 21 dias após (reagendar)
+        5. Disparar webhooks N8N para cada notificação
+
+        **Configuração do Cron:**
+        Configure seu servidor para chamar este endpoint de hora em hora (8h-20h).
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Cron executado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Cron executado com sucesso
+                  data:
+                    type: object
+                    properties:
+                      lembrete_24h:
+                        type: integer
+                        description: Quantidade de lembretes 24h enviados
+                      lembrete_2h:
+                        type: integer
+                        description: Quantidade de lembretes 2h enviados
+                      followup_3d:
+                        type: integer
+                        description: Quantidade de follow-ups 3 dias enviados
+                      followup_21d:
+                        type: integer
+                        description: Quantidade de follow-ups 21 dias enviados
+                      erros:
+                        type: array
+                        items:
+                          type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+        '401':
+          description: Não autorizado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: Não autorizado
+        '500':
+          description: Erro interno do servidor

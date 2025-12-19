@@ -38,22 +38,30 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { nome, descricao, preco, categoria, estoque, ativo } = body
+    const { nome, descricao, preco: precoRaw, categoria, estoque: estoqueRaw, ativo } = body
 
     // Validações
-    if (!nome || preco === undefined) {
+    if (!nome || precoRaw === undefined || precoRaw === null || precoRaw === '') {
       return NextResponse.json({
         success: false,
         error: 'nome e preco são obrigatórios'
       }, { status: 400 })
     }
 
-    if (typeof preco !== 'number' || preco < 0) {
+    // Converter preço para número (aceita string ou number)
+    const preco = typeof precoRaw === 'string' ? parseFloat(precoRaw) : precoRaw
+
+    if (isNaN(preco) || preco < 0) {
       return NextResponse.json({
         success: false,
         error: 'preco deve ser um número positivo'
       }, { status: 400 })
     }
+
+    // Converter estoque para número se fornecido
+    const estoque = estoqueRaw !== undefined
+      ? (typeof estoqueRaw === 'string' ? parseInt(estoqueRaw) : estoqueRaw)
+      : 0
 
     // Criar produto
     const { data: novoProduto, error } = await supabase

@@ -5,7 +5,19 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(npm ls:*)",
+      "Bash(if [ -f \"package-lock.json\" ])",
+      "Bash(then rm package-lock.json)",
+      "Bash(else echo \"package-lock.json não existe\")",
+      "Bash(fi)",
+      "WebFetch(domain:vincibarbearia.vercel.app)",
+      "Bash(npm install:*)",
+      "Bash(node scripts/generate-icons.js:*)",
+      "Bash(curl:*)"
     ]
   }
 }

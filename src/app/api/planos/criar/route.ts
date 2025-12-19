@@ -42,43 +42,51 @@ export async function POST(request: NextRequest) {
     const {
       nome,
       descricao,
-      valor_original,
-      valor_total,
-      quantidade_servicos,
-      validade_dias,
+      valor_original: valorOriginalRaw,
+      valor_total: valorTotalRaw,
+      quantidade_servicos: quantidadeServicosRaw,
+      validade_dias: validadeDiasRaw,
       ativo
     } = body
 
-    // Validações
-    if (!nome || valor_original === undefined || valor_total === undefined || !quantidade_servicos || !validade_dias) {
+    // Validações de campos obrigatórios
+    if (!nome || valorOriginalRaw === undefined || valorOriginalRaw === null || valorOriginalRaw === '' ||
+        valorTotalRaw === undefined || valorTotalRaw === null || valorTotalRaw === '' ||
+        !quantidadeServicosRaw || !validadeDiasRaw) {
       return NextResponse.json({
         success: false,
         error: 'nome, valor_original, valor_total, quantidade_servicos e validade_dias são obrigatórios'
       }, { status: 400 })
     }
 
-    if (typeof valor_original !== 'number' || valor_original < 0) {
+    // Converter valores para números (aceita string ou number)
+    const valor_original = typeof valorOriginalRaw === 'string' ? parseFloat(valorOriginalRaw) : valorOriginalRaw
+    const valor_total = typeof valorTotalRaw === 'string' ? parseFloat(valorTotalRaw) : valorTotalRaw
+    const quantidade_servicos = typeof quantidadeServicosRaw === 'string' ? parseInt(quantidadeServicosRaw) : quantidadeServicosRaw
+    const validade_dias = typeof validadeDiasRaw === 'string' ? parseInt(validadeDiasRaw) : validadeDiasRaw
+
+    if (isNaN(valor_original) || valor_original < 0) {
       return NextResponse.json({
         success: false,
         error: 'valor_original deve ser um número positivo'
       }, { status: 400 })
     }
 
-    if (typeof valor_total !== 'number' || valor_total < 0) {
+    if (isNaN(valor_total) || valor_total < 0) {
       return NextResponse.json({
         success: false,
         error: 'valor_total deve ser um número positivo'
       }, { status: 400 })
     }
 
-    if (typeof quantidade_servicos !== 'number' || quantidade_servicos <= 0) {
+    if (isNaN(quantidade_servicos) || quantidade_servicos <= 0) {
       return NextResponse.json({
         success: false,
         error: 'quantidade_servicos deve ser um número positivo'
       }, { status: 400 })
     }
 
-    if (typeof validade_dias !== 'number' || validade_dias <= 0) {
+    if (isNaN(validade_dias) || validade_dias <= 0) {
       return NextResponse.json({
         success: false,
         error: 'validade_dias deve ser um número positivo'

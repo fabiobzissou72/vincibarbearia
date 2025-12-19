@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { plano_id, ...dadosAtualizacao } = body
+    const { plano_id, ...dadosAtualizacaoRaw } = body
 
     // Validações
     if (!plano_id) {
@@ -64,22 +64,60 @@ export async function POST(request: NextRequest) {
       }, { status: 404 })
     }
 
-    // Validar valores se fornecidos
+    // Processar e validar dados de atualização
+    const dadosAtualizacao: any = { ...dadosAtualizacaoRaw }
+
+    // Validar e converter valor_original se fornecido
     if (dadosAtualizacao.valor_original !== undefined) {
-      if (typeof dadosAtualizacao.valor_original !== 'number' || dadosAtualizacao.valor_original < 0) {
+      const valorOriginal = typeof dadosAtualizacao.valor_original === 'string'
+        ? parseFloat(dadosAtualizacao.valor_original)
+        : dadosAtualizacao.valor_original
+
+      if (isNaN(valorOriginal) || valorOriginal < 0) {
         return NextResponse.json({
           success: false,
           error: 'valor_original deve ser um número positivo'
         }, { status: 400 })
       }
+
+      dadosAtualizacao.valor_original = valorOriginal
     }
 
+    // Validar e converter valor_total se fornecido
     if (dadosAtualizacao.valor_total !== undefined) {
-      if (typeof dadosAtualizacao.valor_total !== 'number' || dadosAtualizacao.valor_total < 0) {
+      const valorTotal = typeof dadosAtualizacao.valor_total === 'string'
+        ? parseFloat(dadosAtualizacao.valor_total)
+        : dadosAtualizacao.valor_total
+
+      if (isNaN(valorTotal) || valorTotal < 0) {
         return NextResponse.json({
           success: false,
           error: 'valor_total deve ser um número positivo'
         }, { status: 400 })
+      }
+
+      dadosAtualizacao.valor_total = valorTotal
+    }
+
+    // Converter quantidade_servicos se fornecido
+    if (dadosAtualizacao.quantidade_servicos !== undefined) {
+      const qtd = typeof dadosAtualizacao.quantidade_servicos === 'string'
+        ? parseInt(dadosAtualizacao.quantidade_servicos)
+        : dadosAtualizacao.quantidade_servicos
+
+      if (!isNaN(qtd)) {
+        dadosAtualizacao.quantidade_servicos = qtd
+      }
+    }
+
+    // Converter validade_dias se fornecido
+    if (dadosAtualizacao.validade_dias !== undefined) {
+      const dias = typeof dadosAtualizacao.validade_dias === 'string'
+        ? parseInt(dadosAtualizacao.validade_dias)
+        : dadosAtualizacao.validade_dias
+
+      if (!isNaN(dias)) {
+        dadosAtualizacao.validade_dias = dias
       }
     }
 

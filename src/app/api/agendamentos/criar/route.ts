@@ -324,16 +324,12 @@ export async function POST(request: NextRequest) {
       console.error('Erro ao vincular serviços:', servicosError)
     }
 
-    // Disparar webhook de confirmação (se configurado)
-    try {
-      const { data: config } = await supabase
-        .from('configuracoes')
-        .select('webhook_url, notif_confirmacao')
-        .single()
-
-      if (config?.webhook_url && config?.notif_confirmacao) {
+    // Disparar webhooks (sistema global + webhook personalizado do barbeiro)
+    // IMPORTANTE: Executar de forma assíncrona mas sem bloquear a resposta
+    const dispararWebhooks = async () => {
+      try {
         const payload = {
-          tipo: 'confirmacao',
+          tipo: 'novo_agendamento',
           agendamento_id: novoAgendamento.id,
           cliente: {
             nome: cliente_nome,
@@ -349,42 +345,132 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Disparar webhook (não bloqueia se falhar)
-        fetch(config.webhook_url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        }).then(async (response) => {
-          // Registrar notificação
-          await supabase
-            .from('notificacoes_enviadas')
-            .insert({
+        console.log('🔔 Iniciando disparo de webhooks para agendamento:', novoAgendamento.id)
+
+        // 1. Webhook global do sistema (se configurado)
+        const { data: config, error: configError } = await supabase
+          .from('configuracoes')
+          .select('webhook_url, notif_confirmacao')
+          .single()
+
+        console.log('📊 Config webhook:', {
+          existe: !!config,
+          url: config?.webhook_url,
+          ativo: config?.notif_confirmacao,
+          erro: configError?.message
+        })
+
+        if (config?.webhook_url && config?.notif_confirmacao) {
+          try {
+            console.log('🌐 Disparando webhook global para:', config.webhook_url)
+            const response = await fetch(config.webhook_url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(10000) // 10s timeout
+            })
+
+            const responseText = await response.text()
+            let responseData = null
+            try {
+              responseData = JSON.parse(responseText)
+            } catch {
+              responseData = responseText
+            }
+
+            console.log(`✅ Webhook global ${response.ok ? 'SUCESSO' : 'FALHOU'}:`, response.status)
+
+            await supabase.from('notificacoes_enviadas').insert({
               agendamento_id: novoAgendamento.id,
               tipo: 'confirmacao',
               status: response.ok ? 'enviado' : 'falhou',
               payload: payload,
-              resposta: response.ok ? await response.json().catch(() => null) : null,
+              resposta: responseData,
               erro: response.ok ? null : `HTTP ${response.status}`,
               webhook_url: config.webhook_url
             })
-        }).catch((error) => {
-          console.error('Erro ao disparar webhook:', error)
-          // Registrar falha
-          supabase
-            .from('notificacoes_enviadas')
-            .insert({
+          } catch (error) {
+            console.error('❌ Erro ao disparar webhook global:', error)
+            await supabase.from('notificacoes_enviadas').insert({
               agendamento_id: novoAgendamento.id,
               tipo: 'confirmacao',
               status: 'falhou',
               payload: payload,
-              erro: error.message,
+              erro: error instanceof Error ? error.message : String(error),
               webhook_url: config.webhook_url
             })
+          }
+        } else {
+          console.log('⚠️ Webhook global não configurado ou inativo')
+        }
+
+        // 2. Webhook personalizado do barbeiro (se configurado)
+        const { data: webhookBarbeiro, error: webhookError } = await supabase
+          .from('webhooks_barbeiros')
+          .select('*')
+          .eq('profissional_id', profissionalSelecionado.id)
+          .eq('ativo', true)
+          .single()
+
+        console.log('👨‍💼 Webhook barbeiro:', {
+          existe: !!webhookBarbeiro,
+          url: webhookBarbeiro?.webhook_url,
+          eventos: webhookBarbeiro?.eventos,
+          erro: webhookError?.message
         })
+
+        if (webhookBarbeiro && webhookBarbeiro.eventos?.includes('novo_agendamento')) {
+          try {
+            console.log('🌐 Disparando webhook do barbeiro para:', webhookBarbeiro.webhook_url)
+            const response = await fetch(webhookBarbeiro.webhook_url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(10000) // 10s timeout
+            })
+
+            const responseText = await response.text()
+            let responseData = null
+            try {
+              responseData = JSON.parse(responseText)
+            } catch {
+              responseData = responseText
+            }
+
+            console.log(`✅ Webhook barbeiro ${response.ok ? 'SUCESSO' : 'FALHOU'}:`, response.status)
+
+            await supabase.from('notificacoes_enviadas').insert({
+              agendamento_id: novoAgendamento.id,
+              tipo: 'novo_agendamento_barbeiro',
+              status: response.ok ? 'enviado' : 'falhou',
+              payload: payload,
+              resposta: responseData,
+              erro: response.ok ? null : `HTTP ${response.status}`,
+              webhook_url: webhookBarbeiro.webhook_url
+            })
+          } catch (error) {
+            console.error('❌ Erro ao disparar webhook do barbeiro:', error)
+            await supabase.from('notificacoes_enviadas').insert({
+              agendamento_id: novoAgendamento.id,
+              tipo: 'novo_agendamento_barbeiro',
+              status: 'falhou',
+              payload: payload,
+              erro: error instanceof Error ? error.message : String(error),
+              webhook_url: webhookBarbeiro.webhook_url
+            })
+          }
+        } else {
+          console.log('⚠️ Webhook do barbeiro não configurado ou inativo')
+        }
+
+        console.log('🏁 Webhooks processados para agendamento:', novoAgendamento.id)
+      } catch (webhookError) {
+        console.error('💥 Erro geral no processamento do webhook:', webhookError)
       }
-    } catch (webhookError) {
-      console.error('Erro no processamento do webhook:', webhookError)
     }
+
+    // Disparar webhooks de forma assíncrona (não bloqueia a resposta)
+    dispararWebhooks()
 
     return NextResponse.json({
       success: true,

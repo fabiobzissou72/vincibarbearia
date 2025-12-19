@@ -11,38 +11,69 @@ const supabase = createClient(
  *
  * Retorna os agendamentos da SEMANA ATUAL para um barbeiro específico
  *
- * Query params:
+ * Query params (pelo menos um obrigatório):
  * - telefone: Telefone do barbeiro (com ou sem DDI)
+ * - barbeiro_nome: Nome do barbeiro
+ * - barbeiro_id: UUID do barbeiro
  *
- * Exemplo: /api/barbeiros/agendamentos-semana?telefone=5511999999999
+ * Exemplos:
+ * - /api/barbeiros/agendamentos-semana?telefone=5511999999999
+ * - /api/barbeiros/agendamentos-semana?barbeiro_nome=Hiago
+ * - /api/barbeiros/agendamentos-semana?barbeiro_id=uuid-123
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const telefone = searchParams.get('telefone')
+    const barbeiroNome = searchParams.get('barbeiro_nome')
+    const barbeiroId = searchParams.get('barbeiro_id')
 
-    if (!telefone) {
+    if (!telefone && !barbeiroNome && !barbeiroId) {
       return NextResponse.json(
-        { error: 'Telefone do barbeiro é obrigatório' },
+        { error: 'É obrigatório fornecer telefone, barbeiro_nome ou barbeiro_id' },
         { status: 400 }
       )
     }
 
-    // Normaliza o telefone (remove caracteres especiais)
-    const telefoneNormalizado = telefone.replace(/\D/g, '')
+    // 1. Buscar o profissional pelo telefone, nome ou ID
+    let profissional
+    let profissionalError
 
-    // 1. Buscar o profissional pelo telefone
-    const { data: profissional, error: profissionalError } = await supabase
-      .from('profissionais')
-      .select('id, nome, telefone')
-      .or(`telefone.eq.${telefone},telefone.eq.${telefoneNormalizado}`)
-      .single()
+    if (barbeiroId) {
+      // Buscar por ID
+      const result = await supabase
+        .from('profissionais')
+        .select('id, nome, telefone')
+        .eq('id', barbeiroId)
+        .single()
+      profissional = result.data
+      profissionalError = result.error
+    } else if (telefone) {
+      // Buscar por telefone
+      const telefoneNormalizado = telefone.replace(/\D/g, '')
+      const result = await supabase
+        .from('profissionais')
+        .select('id, nome, telefone')
+        .or(`telefone.eq.${telefone},telefone.eq.${telefoneNormalizado}`)
+        .single()
+      profissional = result.data
+      profissionalError = result.error
+    } else if (barbeiroNome) {
+      // Buscar por nome
+      const result = await supabase
+        .from('profissionais')
+        .select('id, nome, telefone')
+        .ilike('nome', `%${barbeiroNome}%`)
+        .single()
+      profissional = result.data
+      profissionalError = result.error
+    }
 
     if (profissionalError || !profissional) {
       return NextResponse.json(
         {
           error: 'Barbeiro não encontrado',
-          message: 'Telefone não cadastrado no sistema'
+          message: 'Barbeiro não cadastrado no sistema'
         },
         { status: 404 }
       )
