@@ -67,10 +67,9 @@ export async function GET(request: NextRequest) {
         id,
         data_agendamento,
         hora_inicio,
-        hora_fim,
         status,
         nome_cliente,
-        telefone_cliente,
+        telefone,
         compareceu,
         profissionais (
           nome
@@ -79,11 +78,11 @@ export async function GET(request: NextRequest) {
           servicos (
             nome,
             preco,
-            duracao
+            duracao_minutos
           )
         )
       `)
-      .or(`telefone_cliente.eq.${telefone},telefone_cliente.eq.${telefoneNormalizado}`)
+      .or(`telefone.eq.${telefone},telefone.eq.${telefoneNormalizado}`)
       .in('status', ['agendado', 'confirmado', 'em_andamento'])
       .order('data_agendamento', { ascending: true })
       .order('hora_inicio', { ascending: true })
@@ -133,11 +132,11 @@ export async function GET(request: NextRequest) {
       const servicos = ag.agendamento_servicos?.map((as: any) => ({
         nome: as.servicos.nome,
         preco: as.servicos.preco,
-        duracao: as.servicos.duracao
+        duracao_minutos: as.servicos.duracao_minutos
       })) || []
 
       const valorTotal = servicos.reduce((acc: number, s: any) => acc + parseFloat(s.preco), 0)
-      const duracaoTotal = servicos.reduce((acc: number, s: any) => acc + parseInt(s.duracao), 0)
+      const duracaoTotal = servicos.reduce((acc: number, s: any) => acc + parseInt(s.duracao_minutos), 0)
 
       // Calcular se ainda pode cancelar (mínimo 2 horas de antecedência)
       const [dia, mes, ano] = ag.data_agendamento.split('/').map(Number)
@@ -164,7 +163,6 @@ export async function GET(request: NextRequest) {
         id: ag.id,
         data: ag.data_agendamento,
         hora_inicio: ag.hora_inicio,
-        hora_fim: ag.hora_fim,
         status: ag.status,
         barbeiro: ag.profissionais?.nome || 'Não atribuído',
         servicos: servicos,
