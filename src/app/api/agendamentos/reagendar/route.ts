@@ -95,29 +95,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Calcular hora_fim baseada na duração dos serviços
-    let duracaoTotal = 0
-    if (agendamento.agendamento_servicos && agendamento.agendamento_servicos.length > 0) {
-      for (const as of agendamento.agendamento_servicos) {
-        duracaoTotal += as.servicos.duracao || 30
-      }
-    } else {
-      duracaoTotal = 30
-    }
-
-    const [horaInicio, minutoInicio] = nova_hora.split(':').map(Number)
-    const minutosTotais = horaInicio * 60 + minutoInicio + duracaoTotal
-    const horaFim = Math.floor(minutosTotais / 60)
-    const minutoFim = minutosTotais % 60
-    const hora_fim = `${String(horaFim).padStart(2, '0')}:${String(minutoFim).padStart(2, '0')}`
-
     // Atualizar agendamento
     const { data: agendamentoAtualizado, error: erroUpdate } = await supabase
       .from('agendamentos')
       .update({
         data_agendamento: dataFormatada,
         hora_inicio: nova_hora,
-        hora_fim: hora_fim,
         status: 'agendado' // Resetar status para agendado
       })
       .eq('id', agendamento_id)
