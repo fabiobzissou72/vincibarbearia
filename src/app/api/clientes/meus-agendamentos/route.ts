@@ -12,15 +12,28 @@ const supabase = createClient(
  * Retorna os agendamentos FUTUROS de um cliente pelo telefone
  * Usado para o cliente ver seus agendamentos e poder cancelar via WhatsApp
  *
- * Query params:
- * - telefone: Telefone do cliente (com ou sem DDI)
+ * Aceita telefone via:
+ * - Query params: ?telefone=5511999999999
+ * - Header: telefone: 5511999999999
  *
  * Exemplo: /api/clientes/meus-agendamentos?telefone=5511999999999
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const telefone = searchParams.get('telefone')
+
+    // Aceita telefone via query param, header OU body
+    let telefone = searchParams.get('telefone') || request.headers.get('telefone')
+
+    // Se não veio nem por query nem por header, tenta pegar do body
+    if (!telefone) {
+      try {
+        const body = await request.json()
+        telefone = body.telefone
+      } catch (e) {
+        // Se falhar ao ler o body, continua sem telefone
+      }
+    }
 
     if (!telefone) {
       return NextResponse.json(
