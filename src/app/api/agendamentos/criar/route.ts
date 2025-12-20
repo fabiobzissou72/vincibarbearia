@@ -295,7 +295,8 @@ export async function POST(request: NextRequest) {
         telefone: telefone,
         valor: valorTotal,
         status: 'agendado',
-        observacoes: observacoes || null
+        observacoes: observacoes || null,
+        Barbeiro: profissionalSelecionado.nome  // Nome do barbeiro
       })
       .select()
       .single()
