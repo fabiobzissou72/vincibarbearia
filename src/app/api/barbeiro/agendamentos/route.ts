@@ -44,28 +44,49 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams
-    const barbeiroNome = searchParams.get('barbeiro')
+    const barbeiroParam = searchParams.get('barbeiro')
     const quando = searchParams.get('quando')?.toLowerCase()
 
-    if (!barbeiroNome) {
+    if (!barbeiroParam) {
       return NextResponse.json({
         success: false,
-        message: 'Parâmetro "barbeiro" é obrigatório. Exemplo: ?barbeiro=Hiago'
+        message: 'Parâmetro "barbeiro" é obrigatório. Exemplo: ?barbeiro=Hiago ou ?barbeiro=uuid-do-barbeiro'
       }, { status: 400 })
     }
 
-    // Buscar barbeiro pelo nome
-    const { data: barbeiro, error: barbeiroError } = await supabase
-      .from('profissionais')
-      .select('*')
-      .ilike('nome', barbeiroNome)
-      .eq('ativo', true)
-      .single()
+    // Detectar se é UUID ou nome
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(barbeiroParam)
+
+    // Buscar barbeiro pelo UUID ou nome
+    let barbeiro
+    let barbeiroError
+
+    if (isUUID) {
+      // Buscar por UUID
+      const result = await supabase
+        .from('profissionais')
+        .select('*')
+        .eq('id', barbeiroParam)
+        .eq('ativo', true)
+        .single()
+      barbeiro = result.data
+      barbeiroError = result.error
+    } else {
+      // Buscar por nome
+      const result = await supabase
+        .from('profissionais')
+        .select('*')
+        .ilike('nome', barbeiroParam)
+        .eq('ativo', true)
+        .single()
+      barbeiro = result.data
+      barbeiroError = result.error
+    }
 
     if (barbeiroError || !barbeiro) {
       return NextResponse.json({
         success: false,
-        message: `Barbeiro "${barbeiroNome}" não encontrado`
+        message: `Barbeiro "${barbeiroParam}" não encontrado`
       }, { status: 404 })
     }
 

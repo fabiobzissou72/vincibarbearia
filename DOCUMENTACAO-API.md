@@ -196,7 +196,7 @@ Authorization: Bearer SEU_TOKEN_AQUI
 ```
 
 **Parâmetros:**
-- `barbeiro` (obrigatório): Nome do barbeiro
+- `barbeiro` (obrigatório): Nome do barbeiro OU UUID do barbeiro
 - `quando` (opcional): Filtro de data com linguagem natural
   - **Dias relativos:** `hoje`, `amanha`
   - **Dias da semana:** `segunda`, `terca`, `quarta`, `quinta`, `sexta`, `sabado`, `domingo`

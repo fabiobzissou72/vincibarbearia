@@ -22,7 +22,7 @@ Authorization: Bearer SEU_TOKEN_AQUI
 
 | Parâmetro | Tipo | Descrição | Exemplo |
 |-----------|------|-----------|---------|
-| `barbeiro` | string | Nome do barbeiro | `Hiago` |
+| `barbeiro` | string | Nome do barbeiro OU UUID | `Hiago` ou `uuid-do-barbeiro` |
 
 ### Opcionais
 
@@ -49,16 +49,16 @@ Authorization: Bearer SEU_TOKEN_AQUI
 
 ## 📌 Exemplos de Uso
 
-### 1. Agendamentos de hoje
+### 1. Agendamentos de hoje (por nome)
 
 ```bash
 GET /api/barbeiro/agendamentos?barbeiro=Hiago&quando=hoje
 ```
 
-### 2. Agendamentos de amanhã
+### 2. Agendamentos de amanhã (por UUID)
 
 ```bash
-GET /api/barbeiro/agendamentos?barbeiro=Hiago&quando=amanha
+GET /api/barbeiro/agendamentos?barbeiro=1039a091-b264-4c17-8fd6-88732f2112aa&quando=amanha
 ```
 
 ### 3. Agendamentos da próxima terça-feira
@@ -78,6 +78,8 @@ GET /api/barbeiro/agendamentos?barbeiro=Hiago&quando=25/12/2024
 ```bash
 GET /api/barbeiro/agendamentos?barbeiro=Hiago
 ```
+
+**Nota:** O parâmetro `barbeiro` aceita tanto o **nome** (`Hiago`) quanto o **UUID** (`1039a091-b264-4c17-8fd6-88732f2112aa`) do barbeiro.
 
 ## ✅ Resposta de Sucesso
 
