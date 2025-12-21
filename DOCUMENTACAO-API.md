@@ -179,11 +179,108 @@ Content-Type: application/json
 
 ## 2. APIs para Barbeiros (WhatsApp)
 
-### 2.1. Meus Agendamentos
+### 2.1. Agendamentos (NOVA - Recomendada) ⭐
+
+**Endpoint:** `GET /api/barbeiro/agendamentos`
+
+**Descrição:** API intuitiva para barbeiros consultarem agendamentos com linguagem natural. **RECOMENDADA PARA IA/CHATBOTS**.
+
+**Headers:**
+```
+Authorization: Bearer SEU_TOKEN_AQUI
+```
+
+**Query Parameters:**
+```
+?barbeiro=Hiago&quando=terca
+```
+
+**Parâmetros:**
+- `barbeiro` (obrigatório): Nome do barbeiro
+- `quando` (opcional): Filtro de data com linguagem natural
+  - **Dias relativos:** `hoje`, `amanha`
+  - **Dias da semana:** `segunda`, `terca`, `quarta`, `quinta`, `sexta`, `sabado`, `domingo`
+  - **Data específica:** `21/12/2024` ou `2024-12-21`
+  - **Sem filtro:** retorna todos os agendamentos futuros
+
+**Resposta Sucesso (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "barbeiro": {
+      "id": "uuid-barbeiro",
+      "nome": "Hiago"
+    },
+    "filtro": "terca",
+    "descricao": "terça-feira (24/12/2024)",
+    "data_filtro": "24/12/2024",
+    "total_agendamentos": 5,
+    "valor_total": 250.00,
+    "agendamentos": [
+      {
+        "id": "uuid",
+        "data": "24/12/2024",
+        "hora": "09:00",
+        "cliente": "João Silva",
+        "telefone": "11999999999",
+        "servicos": "Corte + Barba",
+        "valor": 50.00,
+        "status": "confirmado",
+        "observacoes": null
+      }
+    ],
+    "mensagem_whatsapp": "📅 *Agendamentos - terça-feira (24/12/2024)*\n\n👤 *Barbeiro:* Hiago\n📊 *Total:* 5 agendamento(s)\n💰 *Valor total:* R$ 250.00\n\n─────────────────\n\n*1. 09:00* - João Silva\n   📞 11999999999\n   ✂️ Corte + Barba\n   💵 R$ 50.00"
+  }
+}
+```
+
+**Exemplos de Uso:**
+```bash
+# Agendamentos de hoje
+GET /api/barbeiro/agendamentos?barbeiro=Hiago&quando=hoje
+
+# Agendamentos de amanhã
+GET /api/barbeiro/agendamentos?barbeiro=Hiago&quando=amanha
+
+# Próxima terça-feira
+GET /api/barbeiro/agendamentos?barbeiro=Hiago&quando=terca
+
+# Data específica
+GET /api/barbeiro/agendamentos?barbeiro=Hiago&quando=25/12/2024
+
+# Todos os futuros
+GET /api/barbeiro/agendamentos?barbeiro=Hiago
+```
+
+**Perguntas que a IA pode responder:**
+| Pergunta do Barbeiro | Parâmetro `quando` |
+|---------------------|-------------------|
+| "Quais meus agendamentos hoje?" | `hoje` |
+| "Tenho cliente amanhã?" | `amanha` |
+| "Quantos clientes tenho na terça?" | `terca` |
+| "Mostra minha agenda de quinta" | `quinta` |
+| "Agendamentos do dia 25/12" | `25/12/2024` |
+| "Quais meus próximos clientes?" | *(não passar)* |
+
+**Erros:**
+- `400`: Parâmetro "barbeiro" faltando ou filtro "quando" inválido
+- `401`: Token não fornecido
+- `403`: Token inválido
+- `404`: Barbeiro não encontrado
+- `500`: Erro interno
+
+**Documentação completa:** Ver arquivo `API-BARBEIRO-AGENDAMENTOS.md`
+
+---
+
+### 2.2. Meus Agendamentos (Legacy)
 
 **Endpoint:** `GET /api/barbeiros/meus-agendamentos`
 
-**Descrição:** Lista agendamentos de um barbeiro específico.
+**Descrição:** Lista agendamentos de um barbeiro específico com períodos pré-definidos.
+
+**⚠️ NOTA:** Para IA/Chatbots, use a nova API `/api/barbeiro/agendamentos` (seção 2.1)
 
 **Query Parameters:**
 ```
@@ -192,7 +289,7 @@ Content-Type: application/json
 
 **Parâmetros:**
 - `barbeiro_nome` (obrigatório): Nome do barbeiro
-- `periodo` (opcional): `hoje`, `semana`, `mes` (padrão: `hoje`)
+- `periodo` (opcional): `hoje`, `amanha`, `semana`, `semana_que_vem`, `mes`, `mes_que_vem`, `proximos7dias`, `proximos30dias` (padrão: `hoje`)
 
 **Resposta Sucesso (200):**
 ```json
@@ -224,7 +321,7 @@ GET https://seu-dominio.vercel.app/api/barbeiros/meus-agendamentos?barbeiro_nome
 
 ---
 
-### 2.2. Meu Faturamento
+### 2.3. Meu Faturamento
 
 **Endpoint:** `GET /api/barbeiros/meu-faturamento`
 
@@ -269,7 +366,7 @@ GET https://seu-dominio.vercel.app/api/barbeiros/meus-agendamentos?barbeiro_nome
 
 ---
 
-### 2.3. Cancelar Meu Agendamento
+### 2.4. Cancelar Meu Agendamento
 
 **Endpoint:** `POST /api/barbeiros/cancelar-meu-agendamento`
 
@@ -319,7 +416,7 @@ POST https://seu-dominio.vercel.app/api/barbeiros/cancelar-meu-agendamento
 
 ---
 
-### 2.4. Horários do Barbeiro
+### 2.5. Horários do Barbeiro
 
 **Endpoint:** `GET /api/barbeiros/horarios`
 
@@ -352,7 +449,7 @@ POST https://seu-dominio.vercel.app/api/barbeiros/cancelar-meu-agendamento
 
 ---
 
-### 2.5. Agendamentos Hoje (Legacy)
+### 2.6. Agendamentos Hoje (Legacy)
 
 **Endpoint:** `GET /api/barbeiros/agendamentos-hoje`
 
@@ -367,7 +464,7 @@ POST https://seu-dominio.vercel.app/api/barbeiros/cancelar-meu-agendamento
 
 ---
 
-### 2.6. Agendamentos Semana (Legacy)
+### 2.7. Agendamentos Semana (Legacy)
 
 **Endpoint:** `GET /api/barbeiros/agendamentos-semana`
 
@@ -382,7 +479,7 @@ POST https://seu-dominio.vercel.app/api/barbeiros/cancelar-meu-agendamento
 
 ---
 
-### 2.7. Faturamento Mês (Legacy)
+### 2.8. Faturamento Mês (Legacy)
 
 **Endpoint:** `GET /api/barbeiros/faturamento-mes`
 
@@ -397,7 +494,7 @@ POST https://seu-dominio.vercel.app/api/barbeiros/cancelar-meu-agendamento
 
 ---
 
-### 2.8. Listar Barbeiros
+### 2.9. Listar Barbeiros
 
 **Endpoint:** `GET /api/barbeiros/listar`
 
@@ -897,6 +994,7 @@ graph TD
 
 ---
 
-**Documentação gerada automaticamente em:** 11/12/2025
+**Documentação gerada automaticamente em:** 21/12/2024
+**Última atualização:** 21/12/2024 - Nova API `/api/barbeiro/agendamentos` adicionada
 **Desenvolvido por:** Claude Code
-**Versão da API:** 1.0
+**Versão da API:** 1.1
