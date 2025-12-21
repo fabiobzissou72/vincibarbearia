@@ -755,13 +755,187 @@ paths:
         '200':
           description: Agendamentos de hoje retornados
 
+  /barbeiro/agendamentos:
+    get:
+      tags:
+        - Barbeiros
+      summary: 🆕 Agendamentos do Barbeiro (Recomendada para IA/Chatbots)
+      description: |
+        **⭐ API NOVA E RECOMENDADA** para barbeiros consultarem agendamentos com linguagem natural.
+
+        Ideal para integração com IA, chatbots e WhatsApp!
+
+        **Filtros aceitos no parâmetro `quando`:**
+        - **Dias relativos:** `hoje`, `amanha`
+        - **Dias da semana:** `segunda`, `terca`, `quarta`, `quinta`, `sexta`, `sabado`, `domingo`
+        - **Data específica:** `21/12/2024` ou `2024-12-21`
+        - **Sem filtro:** retorna todos os agendamentos futuros
+
+        **Perguntas que a IA pode responder:**
+        - "Quais meus agendamentos hoje?" → `quando=hoje`
+        - "Tenho cliente amanhã?" → `quando=amanha`
+        - "Quantos clientes tenho na terça?" → `quando=terca`
+        - "Mostra minha agenda de quinta" → `quando=quinta`
+        - "Agendamentos do dia 25/12" → `quando=25/12/2024`
+        - "Quais meus próximos clientes?" → sem parâmetro `quando`
+
+        **Exemplo de uso:**
+        ```bash
+        # Agendamentos de hoje
+        curl -X GET 'https://vincibarbearia.vercel.app/api/barbeiro/agendamentos?barbeiro=Hiago&quando=hoje' \
+          -H 'Authorization: Bearer SEU_TOKEN'
+
+        # Próxima terça-feira
+        curl -X GET 'https://vincibarbearia.vercel.app/api/barbeiro/agendamentos?barbeiro=Hiago&quando=terca' \
+          -H 'Authorization: Bearer SEU_TOKEN'
+        ```
+
+        **Diferenças em relação à API antiga:**
+        - ✅ Aceita dias da semana naturais (terca, quinta, etc.)
+        - ✅ Mais simples: apenas `barbeiro` e `quando`
+        - ✅ Sem `quando`: retorna todos futuros automaticamente
+        - ✅ Aceita datas em múltiplos formatos
+
+        📖 **Documentação completa:** Ver arquivo `API-BARBEIRO-AGENDAMENTOS.md`
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: barbeiro
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Nome do barbeiro
+          example: "Hiago"
+        - name: quando
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Filtro de data com linguagem natural:
+            - Dias: `hoje`, `amanha`
+            - Semana: `segunda`, `terca`, `quarta`, `quinta`, `sexta`, `sabado`, `domingo`
+            - Data: `21/12/2024` ou `2024-12-21`
+            - Vazio: todos os agendamentos futuros
+          example: "terca"
+      responses:
+        '200':
+          description: Agendamentos retornados com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      barbeiro:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          nome:
+                            type: string
+                            example: "Hiago"
+                      filtro:
+                        type: string
+                        example: "terca"
+                      descricao:
+                        type: string
+                        example: "terça-feira (24/12/2024)"
+                      data_filtro:
+                        type: string
+                        example: "24/12/2024"
+                      total_agendamentos:
+                        type: integer
+                        example: 5
+                      valor_total:
+                        type: number
+                        format: float
+                        example: 250.00
+                      agendamentos:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                            data:
+                              type: string
+                              example: "24/12/2024"
+                            hora:
+                              type: string
+                              example: "09:00"
+                            cliente:
+                              type: string
+                              example: "João Silva"
+                            telefone:
+                              type: string
+                              example: "11999999999"
+                            servicos:
+                              type: string
+                              example: "Corte + Barba"
+                            valor:
+                              type: number
+                              format: float
+                              example: 50.00
+                            status:
+                              type: string
+                              example: "confirmado"
+                            observacoes:
+                              type: string
+                              nullable: true
+                      mensagem_whatsapp:
+                        type: string
+                        description: Mensagem formatada para enviar no WhatsApp
+        '400':
+          description: Parâmetro inválido ou faltando
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: 'Parâmetro "barbeiro" é obrigatório'
+        '401':
+          description: Token não fornecido
+        '403':
+          description: Token inválido
+        '404':
+          description: Barbeiro não encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: 'Barbeiro "NomeInexistente" não encontrado'
+        '500':
+          description: Erro interno do servidor
+
   /barbeiros/meus-agendamentos:
     get:
       tags:
         - Barbeiros
-      summary: Meus agendamentos do barbeiro
+      summary: Meus agendamentos do barbeiro (Legacy)
       description: |
         Retorna os agendamentos do barbeiro (para usar no WhatsApp).
+
+        **⚠️ ATENÇÃO:** Para IA/Chatbots, use a nova API `/barbeiro/agendamentos` (recomendada)
 
         **Períodos disponíveis:**
         - hoje
