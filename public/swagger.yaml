@@ -1104,30 +1104,135 @@ paths:
           description: Horário bloqueado com sucesso
 
   /barbeiros/cancelar-meu-agendamento:
-    delete:
+    post:
       tags:
         - Barbeiros
       summary: Barbeiro cancelar próprio agendamento
-      description: Permite que o barbeiro cancele um agendamento seu
-      security:
-        - BearerAuth: []
+      description: |
+        Permite que o barbeiro cancele um agendamento via WhatsApp.
+
+        **Aceita 2 formas de cancelamento:**
+
+        **FORMA 1 - RECOMENDADA (Usando ID):** ⭐
+        - Mais simples e direto
+        - Apenas 1 parâmetro: `agendamento_id`
+        - Sem chance de erro
+        - Ideal para usar com botões interativos
+
+        **FORMA 2 - ALTERNATIVA (Usando nome e hora):**
+        - Compatibilidade com fluxos antigos
+        - Parâmetros: `barbeiro_nome`, `cliente_nome`, `hora`
+        - Depende de extração correta do texto
+
+        **Exemplo de uso:**
+        ```bash
+        # Forma 1 - Com ID
+        curl -X POST 'https://vincibarbearia.vercel.app/api/barbeiros/cancelar-meu-agendamento' \
+          -H 'Content-Type: application/json' \
+          -d '{"agendamento_id": "abc123-uuid"}'
+
+        # Forma 2 - Com nome e hora
+        curl -X POST 'https://vincibarbearia.vercel.app/api/barbeiros/cancelar-meu-agendamento' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "barbeiro_nome": "Hiago",
+            "cliente_nome": "João",
+            "hora": "14:00"
+          }'
+        ```
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - agendamento_id
-              properties:
-                agendamento_id:
-                  type: string
-                  format: uuid
-                motivo:
-                  type: string
+              oneOf:
+                - type: object
+                  title: Forma 1 - Com ID (Recomendada)
+                  required:
+                    - agendamento_id
+                  properties:
+                    agendamento_id:
+                      type: string
+                      format: uuid
+                      description: UUID do agendamento (retornado pela API de consulta)
+                      example: "abc123-def456-uuid-agendamento"
+                - type: object
+                  title: Forma 2 - Com nome e hora (Alternativa)
+                  required:
+                    - barbeiro_nome
+                    - cliente_nome
+                    - hora
+                  properties:
+                    barbeiro_nome:
+                      type: string
+                      description: Nome do barbeiro OU UUID do barbeiro
+                      example: "Hiago"
+                    cliente_nome:
+                      type: string
+                      description: Nome do cliente (pode ser parcial)
+                      example: "João"
+                    hora:
+                      type: string
+                      pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+                      description: Hora do agendamento (HH:MM)
+                      example: "14:00"
+                    data:
+                      type: string
+                      description: Data do agendamento (DD/MM/YYYY). Padrão = hoje
+                      example: "21/12/2024"
+            examples:
+              forma1:
+                summary: Forma 1 - Com ID (Recomendada)
+                value:
+                  agendamento_id: "abc123-def456-uuid-agendamento"
+              forma2:
+                summary: Forma 2 - Com nome e hora
+                value:
+                  barbeiro_nome: "Hiago"
+                  cliente_nome: "João"
+                  hora: "14:00"
       responses:
         '200':
-          description: Agendamento cancelado
+          description: Agendamento cancelado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Agendamento cancelado com sucesso!"
+                  data:
+                    type: object
+                    properties:
+                      agendamento_id:
+                        type: string
+                        format: uuid
+                      cliente:
+                        type: string
+                        example: "João Silva"
+                      data:
+                        type: string
+                        example: "21/12/2024"
+                      hora:
+                        type: string
+                        example: "14:00"
+                      valor:
+                        type: number
+                        format: float
+                        example: 70.00
+                      mensagem_whatsapp:
+                        type: string
+                        description: Mensagem formatada para enviar no WhatsApp
+        '400':
+          description: Parâmetros inválidos ou faltando
+        '404':
+          description: Agendamento não encontrado ou já cancelado
+        '500':
+          description: Erro interno do servidor
 
   /barbeiros/horarios:
     get:

@@ -8,8 +8,14 @@ export const dynamic = 'force-dynamic'
  *
  * Permite barbeiro cancelar um agendamento via WhatsApp
  *
+ * FORMA 1 (RECOMENDADA):
  * Body: {
- *   barbeiro_nome: "Hiago",
+ *   agendamento_id: "uuid-do-agendamento"
+ * }
+ *
+ * FORMA 2 (COMPATIBILIDADE):
+ * Body: {
+ *   barbeiro_nome: "Hiago" ou "uuid-do-barbeiro",
  *   cliente_nome: "Fabio",
  *   hora: "13:00",
  *   data: "11/12/2025" (opcional, padrão: hoje)
@@ -18,37 +24,116 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { barbeiro_nome, cliente_nome, hora, data } = body
+    const { barbeiro_nome, cliente_nome, hora, data, agendamento_id } = body
 
+    // FORMA 1: Cancelar pelo ID do agendamento (mais fácil e recomendado)
+    if (agendamento_id) {
+      // Buscar agendamento pelo ID
+      const { data: agendamento, error: agendamentoError } = await supabase
+        .from('agendamentos')
+        .select('*, profissionais(nome)')
+        .eq('id', agendamento_id)
+        .in('status', ['agendado', 'confirmado'])
+        .single()
+
+      if (agendamentoError || !agendamento) {
+        return NextResponse.json({
+          success: false,
+          message: `Agendamento "${agendamento_id}" não encontrado ou já cancelado`
+        }, { status: 404 })
+      }
+
+      // Cancelar agendamento
+      const { error: cancelError } = await supabase
+        .from('agendamentos')
+        .update({
+          status: 'cancelado',
+          observacoes: `${agendamento.observacoes ? agendamento.observacoes + '\n\n' : ''}CANCELADO: Cancelado via WhatsApp em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`
+        })
+        .eq('id', agendamento.id)
+
+      if (cancelError) {
+        console.error('Erro ao cancelar agendamento:', cancelError)
+        return NextResponse.json({
+          success: false,
+          message: 'Erro ao cancelar agendamento'
+        }, { status: 500 })
+      }
+
+      // Mensagem de sucesso
+      const mensagemWhatsApp = `✅ *Agendamento cancelado com sucesso!*\n\n` +
+        `📅 *Data:* ${agendamento.data_agendamento}\n` +
+        `🕐 *Hora:* ${agendamento.hora_inicio}\n` +
+        `👤 *Cliente:* ${agendamento.nome_cliente}\n` +
+        `📞 *Telefone:* ${agendamento.telefone}\n` +
+        `💵 *Valor:* R$ ${agendamento.valor.toFixed(2)}\n\n` +
+        `O cliente será notificado sobre o cancelamento.`
+
+      return NextResponse.json({
+        success: true,
+        message: 'Agendamento cancelado com sucesso!',
+        data: {
+          agendamento_id: agendamento.id,
+          cliente: agendamento.nome_cliente,
+          data: agendamento.data_agendamento,
+          hora: agendamento.hora_inicio,
+          valor: agendamento.valor,
+          mensagem_whatsapp: mensagemWhatsApp
+        }
+      })
+    }
+
+    // FORMA 2: Cancelar pelo nome do cliente e hora (método antigo)
     // Validações
     if (!barbeiro_nome) {
       return NextResponse.json({
         success: false,
-        message: 'Parâmetro barbeiro_nome é obrigatório'
+        message: 'Parâmetro barbeiro_nome é obrigatório (pode ser nome ou UUID). Ou use agendamento_id para cancelar direto.'
       }, { status: 400 })
     }
 
     if (!cliente_nome) {
       return NextResponse.json({
         success: false,
-        message: 'Parâmetro cliente_nome é obrigatório'
+        message: 'Parâmetro cliente_nome é obrigatório. Ou use agendamento_id para cancelar direto.'
       }, { status: 400 })
     }
 
     if (!hora) {
       return NextResponse.json({
         success: false,
-        message: 'Parâmetro hora é obrigatório'
+        message: 'Parâmetro hora é obrigatório. Ou use agendamento_id para cancelar direto.'
       }, { status: 400 })
     }
 
-    // Buscar barbeiro pelo nome
-    const { data: barbeiro, error: barbeiroError } = await supabase
-      .from('profissionais')
-      .select('*')
-      .ilike('nome', barbeiro_nome)
-      .eq('ativo', true)
-      .single()
+    // Detectar se é UUID ou nome
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(barbeiro_nome)
+
+    // Buscar barbeiro pelo UUID ou nome
+    let barbeiro
+    let barbeiroError
+
+    if (isUUID) {
+      // Buscar por UUID
+      const result = await supabase
+        .from('profissionais')
+        .select('*')
+        .eq('id', barbeiro_nome)
+        .eq('ativo', true)
+        .single()
+      barbeiro = result.data
+      barbeiroError = result.error
+    } else {
+      // Buscar por nome
+      const result = await supabase
+        .from('profissionais')
+        .select('*')
+        .ilike('nome', barbeiro_nome)
+        .eq('ativo', true)
+        .single()
+      barbeiro = result.data
+      barbeiroError = result.error
+    }
 
     if (barbeiroError || !barbeiro) {
       return NextResponse.json({
