@@ -7,6 +7,7 @@
 4. [Barbeiros/Profissionais](#barbeirosprofissionais)
 5. [Serviços](#serviços)
 6. [Cancelamento e Confirmação](#cancelamento-e-confirmação)
+7. [Autenticação](#autenticação)
 
 ---
 
@@ -27,10 +28,13 @@
   "hora": "14:30",
   "servico_ids": ["uuid-servico-1", "uuid-servico-2"],
   "barbeiro_preferido": "uuid-barbeiro-ou-nome",
+  "barbeiro_id": "uuid-barbeiro",
   "observacoes": "Cliente prefere tesoura",
   "cliente_id": "uuid-cliente-existente"
 }
 ```
+
+**Nota:** A API aceita tanto `barbeiro_preferido` (N8N, nome ou UUID) quanto `barbeiro_id` (App Cliente, UUID). Se nenhum for informado, usa rodízio automático.
 
 #### Exemplo CURL - Um serviço:
 ```bash
@@ -647,6 +651,78 @@ curl -X DELETE http://localhost:3000/api/agendamentos/cancelar \
 
 ---
 
+## 👤 CLIENTES
+
+### 15. Enviar Senha Temporária
+
+**Endpoint:** `POST /api/clientes/enviar-senha-temporaria`
+
+**Descrição:** Gera senha temporária de 6 dígitos e envia via WhatsApp. Webhook separado para não interferir nas automações de agendamento.
+
+#### Request Body:
+```json
+{
+  "telefone": "11999999999"
+}
+```
+
+#### Exemplo CURL:
+```bash
+curl -X POST https://vincibarbearia.vercel.app/api/clientes/enviar-senha-temporaria \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer SEU_TOKEN_API" \
+  -d '{
+    "telefone": "11999999999"
+  }'
+```
+
+#### Response (Success):
+```json
+{
+  "success": true,
+  "senhaTemporaria": "123456",
+  "webhookEnviado": true,
+  "message": "Senha gerada e enviada via WhatsApp"
+}
+```
+
+#### Response (Erro):
+```json
+{
+  "success": false,
+  "error": "Cliente não encontrado"
+}
+```
+
+#### Webhook Payload Enviado:
+```json
+{
+  "tipo": "senha_temporaria",
+  "telefone": "11999999999",
+  "mensagem": "🔐 *Vince Barbearia*\n\nOlá *João Silva*!\n\nSua senha de acesso foi gerada:\n\n*123456*\n\nUse essa senha para fazer login no aplicativo.",
+  "cliente": {
+    "nome": "João Silva",
+    "telefone": "11999999999"
+  },
+  "senha": "123456"
+}
+```
+
+#### Configuração do Webhook:
+1. Acesse **Dashboard > Configurações**
+2. Preencha o campo **"URL do Webhook - Senha Temporária"**
+3. Cole a URL do N8N específica para senhas (separada das automações)
+4. Se não configurado, usa o webhook geral (campo "URL do Webhook - Agendamentos")
+
+#### Notas Importantes:
+- ✅ Senha é sempre **6 dígitos numéricos**
+- ✅ Webhook **separado** para não interferir nas automações existentes
+- ✅ Senha salva com hash bcrypt no banco
+- ✅ Notificação registrada na tabela `notificacoes_enviadas`
+- ⚠️ Requer autenticação com token da API
+
+---
+
 ## 🔐 AUTENTICAÇÃO
 
 A API não requer autenticação para a maioria dos endpoints. Para produção, recomenda-se adicionar:
@@ -682,5 +758,5 @@ Para dúvidas ou problemas, entre em contato:
 
 ---
 
-**Última atualização:** 10/12/2025
-**Versão da API:** 1.0.0
+**Última atualização:** 22/12/2025
+**Versão da API:** 1.1.0

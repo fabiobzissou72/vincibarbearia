@@ -50,9 +50,13 @@ export async function POST(request: NextRequest) {
       hora,
       servico_ids,
       barbeiro_preferido,
+      barbeiro_id, // App cliente envia barbeiro_id
       observacoes,
       cliente_id
     } = body
+
+    // Aceita tanto barbeiro_preferido (N8N) quanto barbeiro_id (app cliente)
+    const barbeiroEscolhido = barbeiro_preferido || barbeiro_id
 
     // Validações
     if (!cliente_nome || !telefone || !data || !hora || !servico_ids || servico_ids.length === 0) {
@@ -117,43 +121,52 @@ export async function POST(request: NextRequest) {
     // Determinar qual barbeiro vai atender
     let profissionalSelecionado: any = null
 
-    if (barbeiro_preferido) {
-      // Buscar barbeiro por UUID (dashboard) ou nome (N8N)
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(barbeiro_preferido)
+    if (barbeiroEscolhido) {
+      // Buscar barbeiro por UUID (dashboard/app) ou nome (N8N)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(barbeiroEscolhido)
+
+      console.log('🔍 [BARBEIRO] Procurando:', barbeiroEscolhido, 'isUUID:', isUUID)
 
       let prof = null
       let profError = null
 
       if (isUUID) {
-        // Dashboard envia UUID
+        // Dashboard/App envia UUID
+        console.log('📍 [BARBEIRO] Buscando por UUID:', barbeiroEscolhido)
         const result = await supabase
           .from('profissionais')
           .select('*')
-          .eq('id', barbeiro_preferido)
+          .eq('id', barbeiroEscolhido)
           .eq('ativo', true)
           .single()
         prof = result.data
         profError = result.error
+        console.log('✅ [BARBEIRO] Resultado UUID:', prof?.nome, 'Erro:', profError?.message)
       } else {
         // N8N envia nome
+        console.log('📍 [BARBEIRO] Buscando por nome:', barbeiroEscolhido)
         const result = await supabase
           .from('profissionais')
           .select('*')
-          .ilike('nome', `%${barbeiro_preferido}%`)
+          .ilike('nome', `%${barbeiroEscolhido}%`)
           .eq('ativo', true)
           .single()
         prof = result.data
         profError = result.error
+        console.log('✅ [BARBEIRO] Resultado nome:', prof?.nome, 'Erro:', profError?.message)
       }
 
       if (profError || !prof) {
+        console.error('❌ [BARBEIRO] Não encontrado:', barbeiroEscolhido, profError)
         return NextResponse.json({
           success: false,
-          message: `Barbeiro "${barbeiro_preferido}" não encontrado ou inativo`,
-          errors: ['Barbeiro não disponível']
+          message: `Barbeiro "${barbeiroEscolhido}" não encontrado ou inativo`,
+          errors: ['Barbeiro não disponível'],
+          debug: { barbeiroEscolhido, isUUID, erro: profError }
         }, { status: 404 })
       }
 
+      console.log('🎯 [BARBEIRO] Selecionado:', prof.nome)
       profissionalSelecionado = prof
     } else {
       // RODÍZIO AUTOMÁTICO: Buscar barbeiro com menos agendamentos do dia

@@ -29,6 +29,7 @@ interface Configuracao {
   aceita_agendamento_online: boolean
   comissao_barbeiro_percentual: number
   webhook_url: string
+  webhook_senha_url?: string
   api_token?: string
   prazo_cancelamento_horas?: number
   notif_confirmacao?: boolean
@@ -66,6 +67,7 @@ export default function ConfiguracoesPage() {
     aceita_agendamento_online: true,
     comissao_barbeiro_percentual: 50,
     webhook_url: '',
+    webhook_senha_url: '',
     prazo_cancelamento_horas: 2,
     notif_confirmacao: true,
     notif_lembrete_24h: true,
@@ -563,7 +565,7 @@ export default function ConfiguracoesPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="block text-sm text-purple-300 mb-1">URL do Webhook (N8N)</label>
+              <label className="block text-sm text-purple-300 mb-1">URL do Webhook (N8N) - Agendamentos</label>
               <input
                 type="url"
                 value={config.webhook_url}
@@ -572,7 +574,21 @@ export default function ConfiguracoesPage() {
                 className="w-full px-3 py-2 bg-slate-800 border border-purple-600/50 rounded text-white text-sm"
               />
               <p className="text-xs text-purple-400 mt-1">
-                Cole aqui a URL do webhook do N8N para enviar notificações WhatsApp
+                Webhook para notificações de agendamentos, cancelamentos e confirmações
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm text-purple-300 mb-1">URL do Webhook - Senha Temporária</label>
+              <input
+                type="url"
+                value={config.webhook_senha_url || ''}
+                onChange={(e) => setConfig({ ...config, webhook_senha_url: e.target.value })}
+                placeholder="https://seu-n8n.com/webhook/senha-temporaria"
+                className="w-full px-3 py-2 bg-slate-800 border border-purple-600/50 rounded text-white text-sm"
+              />
+              <p className="text-xs text-purple-400 mt-1">
+                🔐 Webhook separado para envio de senhas temporárias via WhatsApp (não interfere nas automações)
               </p>
             </div>
           </CardContent>
