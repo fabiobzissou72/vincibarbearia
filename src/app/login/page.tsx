@@ -41,9 +41,9 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="text-center mb-8">
             <div className="mx-auto w-24 h-24 bg-white rounded-xl flex items-center justify-center mb-4 p-3">
-              <img src="/logo.png" alt="Vinci Barbearia" className="w-full h-full object-contain" />
+              <img src="/logo.png" alt="Vince Barbearia" className="w-full h-full object-contain" />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">VINCI</h1>
+            <h1 className="text-2xl font-bold text-white mb-2">VINCE</h1>
             <p className="text-cyan-400 text-sm font-medium">BARBEARIA</p>
           </div>
 
