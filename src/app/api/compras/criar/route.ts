@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { verificarAutenticacao } from '@/lib/auth'
+import { toZonedTime } from 'date-fns-tz'
+import { format } from 'date-fns'
 
 export const dynamic = 'force-dynamic'
+
+const BRASILIA_TZ = 'America/Sao_Paulo'
 
 /**
  * POST /api/compras/criar
@@ -122,12 +126,18 @@ export async function POST(request: NextRequest) {
       itensCompra.push(...planos.map(p => p.nome))
     }
 
-    // Data atual em formato brasileiro
-    const agora = new Date()
-    const dia = String(agora.getDate()).padStart(2, '0')
-    const mes = String(agora.getMonth() + 1).padStart(2, '0')
-    const ano = agora.getFullYear()
+    // Data e hora ATUAL em Brasília (UTC-3)
+    const agoraUTC = new Date()
+    const agoraBrasilia = toZonedTime(agoraUTC, BRASILIA_TZ)
+
+    const dia = String(agoraBrasilia.getDate()).padStart(2, '0')
+    const mes = String(agoraBrasilia.getMonth() + 1).padStart(2, '0')
+    const ano = agoraBrasilia.getFullYear()
     const dataBR = `${dia}/${mes}/${ano}`
+
+    const hora = String(agoraBrasilia.getHours()).padStart(2, '0')
+    const minuto = String(agoraBrasilia.getMinutes()).padStart(2, '0')
+    const horaBR = `${hora}:${minuto}`
 
     // Criar registro de compra na tabela agendamentos
     // Usamos agendamentos pois já tem estrutura, mas sem barbeiro e horário
@@ -137,7 +147,7 @@ export async function POST(request: NextRequest) {
         cliente_id: cliente_id || null,
         profissional_id: null, // SEM BARBEIRO
         data_agendamento: dataBR,
-        hora_inicio: '00:00', // Horário placeholder
+        hora_inicio: horaBR, // Hora ATUAL de Brasília
         nome_cliente: cliente_nome,
         telefone: telefone,
         valor: valorTotal,
