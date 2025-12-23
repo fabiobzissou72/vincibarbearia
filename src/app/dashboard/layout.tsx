@@ -57,7 +57,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <div className="min-h-screen" style={{ background: '#1c283c' }}>
       {/* Overlay mobile - clica para fechar sidebar */}
       {sidebarOpen && (
         <div
@@ -176,7 +176,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Page Content */}
-        <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <main className="min-h-screen" style={{ background: '#1c283c' }}>
           {children}
         </main>
       </div>

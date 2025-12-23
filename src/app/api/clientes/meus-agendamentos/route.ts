@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { toZonedTime } from 'date-fns-tz'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 )
+
+const BRASILIA_TZ = 'America/Sao_Paulo'
 
 /**
  * GET /api/clientes/meus-agendamentos
@@ -45,8 +48,9 @@ export async function GET(request: NextRequest) {
     // Normaliza o telefone (remove caracteres especiais)
     const telefoneNormalizado = telefone.replace(/\D/g, '')
 
-    // 1. Data e hora atuais
-    const agora = new Date()
+    // 1. Data e hora atuais em Brasília (UTC-3)
+    const agoraUTC = new Date()
+    const agora = toZonedTime(agoraUTC, BRASILIA_TZ)
     const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
     const horaAtual = agora.getHours()
     const minutoAtual = agora.getMinutes()
@@ -139,9 +143,13 @@ export async function GET(request: NextRequest) {
       const duracaoTotal = servicos.reduce((acc: number, s: any) => acc + parseInt(s.duracao_minutos), 0)
 
       // Calcular se ainda pode cancelar (mínimo 2 horas de antecedência)
+      // Cria data/hora em Brasília
       const [dia, mes, ano] = ag.data_agendamento.split('/').map(Number)
       const [hora, minuto] = ag.hora_inicio.split(':').map(Number)
-      const dataHoraAgendamento = new Date(ano, mes - 1, dia, hora, minuto)
+      const dataHoraAgendamento = toZonedTime(
+        new Date(ano, mes - 1, dia, hora, minuto),
+        BRASILIA_TZ
+      )
       const diffHoras = (dataHoraAgendamento.getTime() - agora.getTime()) / (1000 * 60 * 60)
       const podeCancelar = diffHoras >= 2
 
