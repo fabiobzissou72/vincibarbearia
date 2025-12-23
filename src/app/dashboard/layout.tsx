@@ -71,8 +71,8 @@ export default function DashboardLayout({
         <div className="p-4">
           {/* Logo */}
           <div className="flex items-center space-x-3 mb-8">
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-              <div className="text-slate-900 font-bold text-lg">V</div>
+            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-1.5">
+              <img src="/logo.png" alt="Vinci Barbearia" className="w-full h-full object-contain" />
             </div>
             {sidebarOpen && (
               <div>

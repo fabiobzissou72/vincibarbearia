@@ -24,7 +24,8 @@
       "Bash(findstr:*)",
       "Bash(taskkill //F //PID 7688)",
       "Bash(ls:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(cp:*)"
     ]
   }
 }
