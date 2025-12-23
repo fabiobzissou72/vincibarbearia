@@ -23,7 +23,8 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(taskkill //F //PID 7688)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }
