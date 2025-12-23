@@ -48,7 +48,9 @@ export async function POST(request: NextRequest) {
       telefone,
       data,
       hora,
-      servico_ids,
+      servico_ids = [],
+      produto_ids = [],
+      plano_ids = [],
       barbeiro_preferido,
       barbeiro_id, // App cliente envia barbeiro_id
       observacoes,
@@ -58,50 +60,84 @@ export async function POST(request: NextRequest) {
     // Aceita tanto barbeiro_preferido (N8N) quanto barbeiro_id (app cliente)
     const barbeiroEscolhido = barbeiro_preferido || barbeiro_id
 
-    // Validações
-    if (!cliente_nome || !telefone || !data || !hora || !servico_ids || servico_ids.length === 0) {
+    // Validações - precisa ter pelo menos serviços OU planos
+    if (!cliente_nome || !telefone || !data || !hora) {
       return NextResponse.json({
         success: false,
         message: 'Dados incompletos',
-        errors: ['cliente_nome, telefone, data, hora e servico_ids são obrigatórios']
+        errors: ['cliente_nome, telefone, data e hora são obrigatórios']
       }, { status: 400 })
     }
 
-    // Buscar serviços para calcular duração e valor
-    const { data: servicos, error: servicoError } = await supabase
-      .from('servicos')
-      .select('*')
-      .in('id', servico_ids)
-      .eq('ativo', true)
-
-    if (servicoError) {
-      console.error('Erro ao buscar serviços:', servicoError)
+    if (servico_ids.length === 0 && plano_ids.length === 0) {
       return NextResponse.json({
         success: false,
-        message: 'Erro ao buscar serviços no banco de dados',
-        errors: [servicoError.message],
-        debug: {
-          servico_ids_enviados: servico_ids,
-          erro_supabase: servicoError
-        }
-      }, { status: 500 })
+        message: 'Selecione pelo menos um serviço ou pacote',
+        errors: ['servico_ids ou plano_ids são obrigatórios']
+      }, { status: 400 })
     }
 
-    if (!servicos || servicos.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: 'Serviços não encontrados ou inativos',
-        errors: ['Um ou mais serviços inválidos ou inativos'],
-        debug: {
-          servico_ids_enviados: servico_ids,
-          servicos_encontrados: servicos?.length || 0,
-          dica: 'Verifique se os IDs dos serviços existem e estão com ativo=true'
-        }
-      }, { status: 400 })
+    // Buscar serviços (se houver)
+    let servicos = []
+    if (servico_ids.length > 0) {
+      const { data: servicosData, error: servicoError } = await supabase
+        .from('servicos')
+        .select('*')
+        .in('id', servico_ids)
+        .eq('ativo', true)
+
+      if (servicoError) {
+        console.error('Erro ao buscar serviços:', servicoError)
+        return NextResponse.json({
+          success: false,
+          message: 'Erro ao buscar serviços no banco de dados',
+          errors: [servicoError.message]
+        }, { status: 500 })
+      }
+
+      if (!servicosData || servicosData.length === 0) {
+        return NextResponse.json({
+          success: false,
+          message: 'Serviços não encontrados ou inativos',
+          errors: ['Um ou mais serviços inválidos']
+        }, { status: 400 })
+      }
+
+      servicos = servicosData
+    }
+
+    // Buscar planos/pacotes (se houver)
+    let planos = []
+    if (plano_ids.length > 0) {
+      const { data: planosData, error: planoError } = await supabase
+        .from('planos')
+        .select('*')
+        .in('id', plano_ids)
+        .eq('ativo', true)
+
+      if (planoError) {
+        console.error('Erro ao buscar planos:', planoError)
+        return NextResponse.json({
+          success: false,
+          message: 'Erro ao buscar pacotes',
+          errors: [planoError.message]
+        }, { status: 500 })
+      }
+
+      if (!planosData || planosData.length === 0) {
+        return NextResponse.json({
+          success: false,
+          message: 'Pacotes não encontrados ou inativos',
+          errors: ['Um ou mais pacotes inválidos']
+        }, { status: 400 })
+      }
+
+      planos = planosData
     }
 
     const duracaoTotal = servicos.reduce((sum, s) => sum + (s.duracao_minutos || 30), 0)
-    const valorTotal = servicos.reduce((sum, s) => sum + (parseFloat(s.preco) || 0), 0)
+    const valorTotal = servicos.reduce((sum, s) => sum + (parseFloat(s.preco) || 0), 0) +
+                       planos.reduce((sum, p) => sum + (parseFloat(p.valor_total) || 0), 0)
 
     // Converter data para formato brasileiro DD/MM/YYYY
     // Aceita: DD-MM-YYYY (11-12-2025) OU YYYY-MM-DD (2025-12-11)
@@ -296,6 +332,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Criar observações incluindo pacotes se houver
+    let observacoesCompletas = observacoes || ''
+    if (planos.length > 0) {
+      const nomesPlanos = planos.map(p => p.nome).join(', ')
+      const obsPlanos = `PACOTE: ${nomesPlanos} (1ª sessão)`
+      observacoesCompletas = observacoesCompletas
+        ? `${observacoesCompletas}\n${obsPlanos}`
+        : obsPlanos
+    }
+
     // Criar agendamento
     const { data: novoAgendamento, error: agendamentoError } = await supabase
       .from('agendamentos')
@@ -308,7 +354,7 @@ export async function POST(request: NextRequest) {
         telefone: telefone,
         valor: valorTotal,
         status: 'agendado',
-        observacoes: observacoes || null,
+        observacoes: observacoesCompletas || null,
         Barbeiro: profissionalSelecionado.nome  // Nome do barbeiro
       })
       .select()
