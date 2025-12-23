@@ -40,7 +40,7 @@ export default function LoginPage() {
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 p-8">
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="mx-auto w-24 h-24 bg-white rounded-xl flex items-center justify-center mb-4 p-3">
+            <div className="mx-auto w-24 h-24 flex items-center justify-center mb-4">
               <img src="/logo.png" alt="Vince Barbearia" className="w-full h-full object-contain" />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">VINCE</h1>
