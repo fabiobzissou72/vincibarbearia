@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
         nome_cliente,
         telefone,
         compareceu,
+        observacoes,
         profissionais (
           nome
         ),
@@ -87,7 +88,7 @@ export async function GET(request: NextRequest) {
         )
       `)
       .or(`telefone.eq.${telefone},telefone.eq.${telefoneNormalizado}`)
-      .in('status', ['agendado', 'confirmado', 'em_andamento'])
+      .in('status', ['agendado', 'confirmado', 'em_andamento', 'pendente_retirada'])
       .order('data_agendamento', { ascending: true })
       .order('hora_inicio', { ascending: true })
 
