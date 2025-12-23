@@ -71,7 +71,7 @@ export default function DashboardLayout({
         <div className="p-4">
           {/* Logo */}
           <div className="flex items-center space-x-3 mb-8">
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center p-1.5">
+            <div className="w-10 h-10 flex items-center justify-center">
               <img src="/logo.png" alt="Vince Barbearia" className="w-full h-full object-contain" />
             </div>
             {sidebarOpen && (
