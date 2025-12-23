@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { verificarAutenticacao } from '@/lib/auth'
+import { toZonedTime } from 'date-fns-tz'
 
 export const dynamic = 'force-dynamic'
+
+const BRASILIA_TZ = 'America/Sao_Paulo'
 
 /**
  * DELETE /api/agendamentos/cancelar
@@ -86,12 +89,17 @@ export async function DELETE(request: NextRequest) {
 
     const prazoCancelamento = config?.prazo_cancelamento_horas || 2 // Padrão: 2h
 
-    // Calcular tempo até o agendamento
+    // Calcular tempo até o agendamento (usando timezone de Brasília)
     // Converter data DD/MM/YYYY para formato ISO
     const [day, month, year] = agendamento.data_agendamento.split('/')
     const dataISO = `${year}-${month}-${day}`
-    const dataAgendamento = new Date(`${dataISO}T${agendamento.hora_inicio}`)
-    const agora = new Date()
+    const dataAgendamentoUTC = new Date(`${dataISO}T${agendamento.hora_inicio}`)
+
+    // Converter ambas as datas para timezone de Brasília (UTC-3)
+    const dataAgendamento = toZonedTime(dataAgendamentoUTC, BRASILIA_TZ)
+    const agoraUTC = new Date()
+    const agora = toZonedTime(agoraUTC, BRASILIA_TZ)
+
     const horasAntecedencia = (dataAgendamento.getTime() - agora.getTime()) / (1000 * 60 * 60)
 
     // Validar prazo (apenas para clientes, se não forçado)
