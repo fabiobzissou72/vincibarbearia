@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { verificarAutenticacao } from '@/lib/auth'
-import { toZonedTime } from 'date-fns-tz'
 
 export const dynamic = 'force-dynamic'
 
@@ -92,14 +91,16 @@ export async function DELETE(request: NextRequest) {
     // Calcular tempo até o agendamento (usando timezone de Brasília)
     // Converter data DD/MM/YYYY para formato ISO
     const [day, month, year] = agendamento.data_agendamento.split('/')
-    const dataISO = `${year}-${month}-${day}`
-    const dataAgendamentoUTC = new Date(`${dataISO}T${agendamento.hora_inicio}`)
 
-    // Converter ambas as datas para timezone de Brasília (UTC-3)
-    const dataAgendamento = toZonedTime(dataAgendamentoUTC, BRASILIA_TZ)
-    const agoraUTC = new Date()
-    const agora = toZonedTime(agoraUTC, BRASILIA_TZ)
+    // Criar data/hora no timezone de Brasília (UTC-3 ou UTC-2 dependendo do horário de verão)
+    // Primeiro, criar string no formato que especifica o horário como de Brasília
+    const brasiliaDateString = `${year}-${month}-${day}T${agendamento.hora_inicio}:00-03:00`
+    const dataAgendamento = new Date(brasiliaDateString)
 
+    // Obter timestamp atual
+    const agora = new Date()
+
+    // Calcular diferença em horas
     const horasAntecedencia = (dataAgendamento.getTime() - agora.getTime()) / (1000 * 60 * 60)
 
     // Validar prazo (apenas para clientes, se não forçado)
