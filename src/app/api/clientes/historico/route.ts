@@ -75,6 +75,29 @@ export async function GET(request: NextRequest) {
 
     const agendamentosCompletos = agendamentos || []
 
+    // Ordenar corretamente por data (converte DD/MM/YYYY para Date)
+    agendamentosCompletos.sort((a, b) => {
+      // Converter data brasileira DD/MM/YYYY para Date
+      const parseDataBR = (dataStr: string): Date => {
+        if (!dataStr) return new Date(0)
+        const [dia, mes, ano] = dataStr.split('/')
+        return new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia))
+      }
+
+      const dataA = parseDataBR(a.data_agendamento)
+      const dataB = parseDataBR(b.data_agendamento)
+
+      // Ordena por data (decrescente)
+      if (dataB.getTime() !== dataA.getTime()) {
+        return dataB.getTime() - dataA.getTime()
+      }
+
+      // Se mesma data, ordena por hora (decrescente)
+      const horaA = a.hora_inicio || '00:00'
+      const horaB = b.hora_inicio || '00:00'
+      return horaB.localeCompare(horaA)
+    })
+
     // Calcular estatísticas
     const totalAgendamentos = agendamentosCompletos.length
     const agendamentosRealizados = agendamentosCompletos.filter(
