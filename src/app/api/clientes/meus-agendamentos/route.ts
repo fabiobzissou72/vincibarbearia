@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
         telefone,
         compareceu,
         observacoes,
+        valor,
         profissionais (
           nome
         ),
@@ -140,7 +141,8 @@ export async function GET(request: NextRequest) {
         duracao_minutos: as.servicos.duracao_minutos
       })) || []
 
-      const valorTotal = servicos.reduce((acc: number, s: any) => acc + parseFloat(s.preco), 0)
+      // Usar valor do banco se disponível, senão calcular dos serviços
+      const valorTotal = ag.valor || servicos.reduce((acc: number, s: any) => acc + parseFloat(s.preco), 0)
       const duracaoTotal = servicos.reduce((acc: number, s: any) => acc + parseInt(s.duracao_minutos), 0)
 
       // Calcular se ainda pode cancelar (mínimo 2 horas de antecedência)
