@@ -113,6 +113,15 @@ function ClientesPageContent() {
   }, [searchParams])
 
   useEffect(() => {
+    // Abrir perfil do cliente automaticamente quando vier da URL
+    const clienteId = searchParams.get('id')
+    if (clienteId) {
+      loadClienteById(clienteId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  useEffect(() => {
     loadClientes(searchTerm, selectedBarbeiro, currentPage)
   }, [currentPage])
 
@@ -354,6 +363,25 @@ function ClientesPageContent() {
     }
   }
 
+  const loadClienteById = async (clienteId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('id', clienteId)
+        .single()
+
+      if (error) throw error
+      if (data) {
+        // Abre o modal de edição com os dados do cliente
+        handleEdit(data as Cliente)
+      }
+    } catch (error) {
+      console.error('Erro ao carregar cliente:', error)
+      alert('Cliente não encontrado')
+    }
+  }
+
   const handleEdit = async (cliente: Cliente) => {
     console.log('Editando cliente:', cliente)
     console.log('Plano ID do cliente:', cliente.plano_id)
@@ -392,6 +420,21 @@ function ClientesPageContent() {
       console.log('Nenhum agendamento concluído encontrado')
     }
 
+    // Buscar memória longa do Redis
+    let memoriaLongaRedis = cliente.menory_long || ''
+    try {
+      const redisResponse = await fetch(`/api/redis/memoria-longa?telefone=${cliente.telefone}`)
+      if (redisResponse.ok) {
+        const redisData = await redisResponse.json()
+        if (redisData.from_redis && redisData.memoria_longa) {
+          memoriaLongaRedis = redisData.memoria_longa
+          console.log('✅ Memória longa carregada do Redis:', memoriaLongaRedis.substring(0, 100) + '...')
+        }
+      }
+    } catch (error) {
+      console.log('⚠️ Não foi possível carregar memória longa do Redis, usando do banco')
+    }
+
     setEditForm({
       nome_completo: cliente.nome_completo || '',
       telefone: cliente.telefone || '',
@@ -412,7 +455,7 @@ function ClientesPageContent() {
       is_vip: cliente.is_vip || false,
       como_soube: cliente.como_soube || '',
       gosta_conversar: cliente.gosta_conversar || '',
-      menory_long: cliente.menory_long || '',
+      menory_long: memoriaLongaRedis,
       tratamento: cliente.tratamento || '',
       ultimo_servico: ultimoServico,
       data_ultimo_servico: dataUltimoServico,
@@ -433,6 +476,29 @@ function ClientesPageContent() {
         .eq('id', editingCliente.id)
 
       if (error) throw error
+
+      // Salvar memória longa no Redis (assíncrono, não bloqueia)
+      if (editForm.menory_long && editForm.telefone) {
+        fetch('/api/redis/memoria-longa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telefone: editForm.telefone,
+            memoria_longa: editForm.menory_long
+          })
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              console.log('✅ Memória longa salva no Redis com sucesso!')
+            } else {
+              console.warn('⚠️ Erro ao salvar memória longa no Redis:', data.error)
+            }
+          })
+          .catch(err => {
+            console.error('❌ Erro ao conectar com Redis:', err)
+          })
+      }
 
       alert('Cliente atualizado com sucesso!')
       setEditingCliente(null)

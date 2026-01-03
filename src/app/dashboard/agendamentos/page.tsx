@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Calendar, Plus, Edit, Trash2, Clock, User, DollarSign, CheckCircle, XCircle, UserCheck } from 'lucide-react'
@@ -57,6 +58,8 @@ export default function AgendamentosPage() {
   const getDataBrasiliaISO = () => {
     return getDataBrasilia().toISOString().split('T')[0]
   }
+
+  const router = useRouter()
 
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([])
   const [loading, setLoading] = useState(true)
