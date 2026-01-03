@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
             }
           : null
       },
-      agendamentos: agendamentosCompletos.slice(0, 10) // Últimos 10
+      agendamentos: agendamentosCompletos // TODOS os agendamentos em ordem decrescente
     })
   } catch (error) {
     console.error('Erro ao buscar histórico:', error)
