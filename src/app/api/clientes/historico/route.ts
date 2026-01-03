@@ -54,7 +54,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Buscar todos os agendamentos do cliente
+    // Buscar todos os agendamentos do cliente por TELEFONE (não por cliente_id)
+    // Isso garante que pegue TODOS, mesmo os criados antes do cadastro formal
     const { data: agendamentos, error: erroAgendamentos } = await supabase
       .from('agendamentos')
       .select(`
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
           servicos(nome, preco, duracao_minutos)
         )
       `)
-      .eq('cliente_id', cliente.id)
+      .eq('telefone', telefone || cliente.telefone)
       .order('data_agendamento', { ascending: false })
       .order('hora_inicio', { ascending: false })
 
