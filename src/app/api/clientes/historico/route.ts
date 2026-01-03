@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
         *,
         profissionais(nome),
         agendamento_servicos(
-          servicos(nome, valor)
+          servicos(nome, preco, duracao_minutos)
         )
       `)
       .eq('cliente_id', cliente.id)
