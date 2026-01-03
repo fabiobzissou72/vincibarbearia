@@ -214,28 +214,37 @@ function ClientesPageContent() {
     try {
       setEnviandoMensagem(true)
 
+      const payload = {
+        telefone: clienteParaMensagem.telefone,
+        mensagem: mensagem,
+        nome_cliente: clienteParaMensagem.nome_completo
+      }
+
+      console.log('📤 Enviando mensagem para webhook:', webhookUrl)
+      console.log('📦 Payload:', payload)
+
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          telefone: clienteParaMensagem.telefone,
-          mensagem: mensagem,
-          nome_cliente: clienteParaMensagem.nome_completo
-        })
+        body: JSON.stringify(payload)
       })
+
+      console.log('📥 Response status:', response.status)
+      const responseText = await response.text()
+      console.log('📥 Response body:', responseText)
 
       if (response.ok) {
         alert('Mensagem enviada com sucesso!')
         setClienteParaMensagem(null)
         setMensagem('')
       } else {
-        throw new Error('Erro ao enviar mensagem')
+        throw new Error(`Erro ${response.status}: ${responseText}`)
       }
     } catch (error) {
-      console.error('Erro ao enviar mensagem:', error)
-      alert('Erro ao enviar mensagem. Verifique a URL do webhook.')
+      console.error('❌ Erro ao enviar mensagem:', error)
+      alert(`Erro ao enviar mensagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}\n\nWebhook: ${webhookUrl}`)
     } finally {
       setEnviandoMensagem(false)
     }
@@ -1246,11 +1255,20 @@ function ClientesPageContent() {
               </div>
 
               {/* Status do Webhook */}
-              <div className="flex items-center space-x-2 text-sm">
+              <div className="space-y-2">
                 {webhookUrl ? (
-                  <span className="text-green-400">✓ Webhook configurado</span>
+                  <>
+                    <div className="flex items-center space-x-2 text-sm">
+                      <span className="text-green-400">✓ Webhook configurado</span>
+                    </div>
+                    <div className="text-xs text-slate-400 bg-slate-800/50 rounded px-3 py-2 font-mono break-all">
+                      {webhookUrl}
+                    </div>
+                  </>
                 ) : (
-                  <span className="text-yellow-400">⚠ Configure o webhook em Configurações primeiro</span>
+                  <div className="flex items-center space-x-2 text-sm">
+                    <span className="text-yellow-400">⚠ Configure o webhook em Configurações primeiro</span>
+                  </div>
                 )}
               </div>
 
