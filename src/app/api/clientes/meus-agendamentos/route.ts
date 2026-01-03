@@ -179,7 +179,8 @@ export async function GET(request: NextRequest) {
         duracao_total: duracaoTotal,
         pode_cancelar: podeCancelar,
         tempo_restante: tempoRestante,
-        motivo_nao_cancelar: podeCancelar ? null : 'Cancelamento deve ser feito com no mínimo 2 horas de antecedência'
+        motivo_nao_cancelar: podeCancelar ? null : 'Cancelamento deve ser feito com no mínimo 2 horas de antecedência',
+        observacoes: ag.observacoes || null
       }
     })
 
