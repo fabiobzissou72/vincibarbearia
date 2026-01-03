@@ -89,6 +89,7 @@ function ClientesPageContent() {
     menory_long: '',
     tratamento: '',
     ultimo_servico: '',
+    data_ultimo_servico: '',
     plano_id: '' as string | null
   })
   const itemsPerPage = 20
@@ -353,10 +354,44 @@ function ClientesPageContent() {
     }
   }
 
-  const handleEdit = (cliente: Cliente) => {
+  const handleEdit = async (cliente: Cliente) => {
     console.log('Editando cliente:', cliente)
     console.log('Plano ID do cliente:', cliente.plano_id)
     setEditingCliente(cliente)
+
+    // Buscar último agendamento concluído do cliente
+    let ultimoServico = cliente.ultimo_servico || ''
+    let dataUltimoServico = ''
+
+    try {
+      const { data: ultimoAgendamento } = await supabase
+        .from('agendamentos')
+        .select(`
+          data_agendamento,
+          agendamento_servicos (
+            servicos (nome)
+          )
+        `)
+        .eq('cliente_id', cliente.id)
+        .eq('status', 'concluido')
+        .order('data_agendamento', { ascending: false })
+        .order('hora_inicio', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (ultimoAgendamento) {
+        dataUltimoServico = ultimoAgendamento.data_agendamento
+        const servicos = ultimoAgendamento.agendamento_servicos
+          ?.map((as: any) => as.servicos.nome)
+          .join(', ') || ''
+        if (servicos) {
+          ultimoServico = servicos
+        }
+      }
+    } catch (error) {
+      console.log('Nenhum agendamento concluído encontrado')
+    }
+
     setEditForm({
       nome_completo: cliente.nome_completo || '',
       telefone: cliente.telefone || '',
@@ -379,7 +414,8 @@ function ClientesPageContent() {
       gosta_conversar: cliente.gosta_conversar || '',
       menory_long: cliente.menory_long || '',
       tratamento: cliente.tratamento || '',
-      ultimo_servico: cliente.ultimo_servico || '',
+      ultimo_servico: ultimoServico,
+      data_ultimo_servico: dataUltimoServico,
       plano_id: cliente.plano_id || null
     })
   }
@@ -440,6 +476,7 @@ function ClientesPageContent() {
         menory_long: '',
         tratamento: '',
         ultimo_servico: '',
+        data_ultimo_servico: '',
         plano_id: null
       })
       loadClientes(searchTerm, selectedBarbeiro, currentPage)
@@ -791,9 +828,10 @@ function ClientesPageContent() {
                   <div>
                     <label className="block text-sm text-slate-400 mb-1">Data de Nascimento</label>
                     <input
-                      type="date"
+                      type="text"
                       value={editForm.data_nascimento}
                       onChange={(e) => setEditForm({ ...editForm, data_nascimento: e.target.value })}
+                      placeholder="DD/MM/AAAA"
                       className="w-full bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
                     />
                   </div>
@@ -1005,6 +1043,17 @@ function ClientesPageContent() {
                       onChange={(e) => setEditForm({ ...editForm, ultimo_servico: e.target.value })}
                       className="w-full bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
                       placeholder="Ex: Corte + Barba"
+                      disabled
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-slate-400 mb-1">Data do Último Serviço</label>
+                    <input
+                      type="text"
+                      value={editForm.data_ultimo_servico}
+                      className="w-full bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
+                      placeholder="Carregado automaticamente..."
                       disabled
                     />
                   </div>

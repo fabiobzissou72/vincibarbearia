@@ -670,7 +670,7 @@ export default function AgendamentosPage() {
       case 'agendado': return 'bg-blue-500'
       case 'confirmado': return 'bg-green-500'
       case 'em_andamento': return 'bg-yellow-500'
-      case 'concluido': return 'bg-purple-500'
+      case 'concluido': return 'bg-emerald-500'
       case 'cancelado': return 'bg-red-500'
       default: return 'bg-gray-500'
     }
@@ -1199,7 +1199,12 @@ export default function AgendamentosPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-1 md:gap-2 mb-1">
                         <User className="w-4 h-4 text-purple-400 flex-shrink-0" />
-                        <span className="font-medium text-white">{agendamento.nome_cliente}</span>
+                        <button
+                          onClick={() => agendamento.cliente_id && router.push(`/dashboard/clientes?id=${agendamento.cliente_id}`)}
+                          className="font-medium text-white hover:text-purple-300 hover:underline transition-colors cursor-pointer"
+                        >
+                          {agendamento.nome_cliente}
+                        </button>
                         <span className="text-purple-300 text-xs md:text-sm">({agendamento.telefone})</span>
                       </div>
 
@@ -1453,7 +1458,17 @@ export default function AgendamentosPage() {
 
               {/* Cliente */}
               <div className="bg-purple-700/20 border border-purple-600/30 rounded-lg p-4">
-                <div className="text-sm text-purple-300 mb-2 font-medium">Cliente</div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm text-purple-300 font-medium">Cliente</div>
+                  {detalhesAgendamento.cliente_id && (
+                    <button
+                      onClick={() => router.push(`/dashboard/clientes?id=${detalhesAgendamento.cliente_id}`)}
+                      className="px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white text-xs rounded-md transition-colors"
+                    >
+                      Ver Perfil
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center space-x-2 mb-2">
                   <User className="w-5 h-5 text-purple-400" />
                   <span className="text-white text-lg font-medium">{detalhesAgendamento.nome_cliente}</span>
