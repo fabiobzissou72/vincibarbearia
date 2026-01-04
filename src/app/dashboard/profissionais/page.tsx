@@ -102,13 +102,24 @@ export default function ProfissionaisPage() {
       // 2.5. Upload da foto (se houver)
       let fotoUrl = null
       if (fotoFile) {
+        console.log('📸 Fazendo upload da foto...')
         fotoUrl = await uploadFoto(novoProfissional.id)
         if (fotoUrl) {
+          console.log('💾 Salvando URL da foto no banco:', fotoUrl)
           // Atualizar profissional com a URL da foto
-          await supabase
+          const { error: updateFotoError } = await supabase
             .from('profissionais')
             .update({ foto_url: fotoUrl })
             .eq('id', novoProfissional.id)
+
+          if (updateFotoError) {
+            console.error('❌ Erro ao salvar URL da foto:', updateFotoError)
+            alert('Foto foi enviada, mas houve erro ao salvar no banco de dados')
+          } else {
+            console.log('✅ URL da foto salva com sucesso!')
+          }
+        } else {
+          console.warn('⚠️ Upload de foto falhou')
         }
       }
 
@@ -173,14 +184,17 @@ export default function ProfissionaisPage() {
 
     try {
       setUploadingFoto(true)
+      console.log('🔄 Iniciando upload de foto para profissional:', profissionalId)
 
       // Nome único para o arquivo
       const fileExt = fotoFile.name.split('.').pop()
       const fileName = `${profissionalId}.${fileExt}`
       const filePath = `profissionais/${fileName}`
 
+      console.log('📁 Caminho do arquivo:', filePath)
+
       // Fazer upload para Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('fotos')
         .upload(filePath, fotoFile, {
           cacheControl: '3600',
@@ -188,18 +202,28 @@ export default function ProfissionaisPage() {
         })
 
       if (uploadError) {
-        console.error('Erro ao fazer upload:', uploadError)
+        console.error('❌ Erro ao fazer upload:', uploadError)
+        alert(`Erro ao fazer upload da foto: ${uploadError.message}\n\nVerifique se o bucket 'fotos' existe e tem permissões públicas.`)
         throw uploadError
       }
+
+      console.log('✅ Upload realizado:', uploadData)
 
       // Obter URL pública
       const { data } = supabase.storage
         .from('fotos')
         .getPublicUrl(filePath)
 
+      console.log('🔗 URL pública gerada:', data.publicUrl)
+
+      if (!data.publicUrl) {
+        throw new Error('Não foi possível gerar URL pública')
+      }
+
       return data.publicUrl
-    } catch (error) {
-      console.error('Erro no upload da foto:', error)
+    } catch (error: any) {
+      console.error('❌ Erro no upload da foto:', error)
+      alert(`Erro ao salvar foto: ${error.message}`)
       return null
     } finally {
       setUploadingFoto(false)
@@ -267,11 +291,17 @@ export default function ProfissionaisPage() {
       // Upload da foto (se houver)
       let fotoUrl = editingProfissional.foto_url
       if (fotoFile) {
+        console.log('📸 Fazendo upload da nova foto...')
         const novaFotoUrl = await uploadFoto(editingProfissional.id)
         if (novaFotoUrl) {
+          console.log('✅ Nova foto enviada:', novaFotoUrl)
           fotoUrl = novaFotoUrl
+        } else {
+          console.warn('⚠️ Upload de nova foto falhou, mantendo foto anterior')
         }
       }
+
+      console.log('💾 Atualizando profissional com foto_url:', fotoUrl)
 
       // Atualizar profissional
       const { error } = await supabase
@@ -287,10 +317,11 @@ export default function ProfissionaisPage() {
         .eq('id', editingProfissional.id)
 
       if (error) {
-        console.error('Erro ao atualizar profissional:', error)
+        console.error('❌ Erro ao atualizar profissional:', error)
         throw error
       }
 
+      console.log('✅ Profissional atualizado com sucesso!')
       alert('Profissional atualizado com sucesso!')
       resetForm()
       loadProfissionais()
