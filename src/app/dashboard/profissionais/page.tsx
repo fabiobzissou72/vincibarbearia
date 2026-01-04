@@ -13,6 +13,7 @@ interface Profissional {
   especialidades: string[] | string | null
   ativo: boolean
   data_cadastro: string
+  foto_url?: string | null
 }
 
 export default function ProfissionaisPage() {
@@ -23,6 +24,9 @@ export default function ProfissionaisPage() {
   const [modoEspecialidade, setModoEspecialidade] = useState<'selecionar' | 'criar'>('selecionar')
   const [novaEspecialidade, setNovaEspecialidade] = useState('')
   const [especialidadesSelecionadas, setEspecialidadesSelecionadas] = useState<string[]>([])
+  const [fotoFile, setFotoFile] = useState<File | null>(null)
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null)
+  const [uploadingFoto, setUploadingFoto] = useState(false)
   const [editForm, setEditForm] = useState({
     nome: '',
     email: '',
@@ -95,6 +99,19 @@ export default function ProfissionaisPage() {
         throw profissionalError || new Error('Erro ao criar profissional')
       }
 
+      // 2.5. Upload da foto (se houver)
+      let fotoUrl = null
+      if (fotoFile) {
+        fotoUrl = await uploadFoto(novoProfissional.id)
+        if (fotoUrl) {
+          // Atualizar profissional com a URL da foto
+          await supabase
+            .from('profissionais')
+            .update({ foto_url: fotoUrl })
+            .eq('id', novoProfissional.id)
+        }
+      }
+
       // 3. Criar login (senha padrão: 123456)
       const { error: loginError } = await supabase
         .from('profissionais_login')
@@ -125,12 +142,78 @@ export default function ProfissionaisPage() {
     }
   }
 
+  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validar tipo de arquivo
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor, selecione apenas arquivos de imagem')
+        return
+      }
+
+      // Validar tamanho (máximo 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('A imagem deve ter no máximo 5MB')
+        return
+      }
+
+      setFotoFile(file)
+
+      // Criar preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setFotoPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const uploadFoto = async (profissionalId: string): Promise<string | null> => {
+    if (!fotoFile) return null
+
+    try {
+      setUploadingFoto(true)
+
+      // Nome único para o arquivo
+      const fileExt = fotoFile.name.split('.').pop()
+      const fileName = `${profissionalId}.${fileExt}`
+      const filePath = `profissionais/${fileName}`
+
+      // Fazer upload para Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('fotos')
+        .upload(filePath, fotoFile, {
+          cacheControl: '3600',
+          upsert: true // Substitui se já existir
+        })
+
+      if (uploadError) {
+        console.error('Erro ao fazer upload:', uploadError)
+        throw uploadError
+      }
+
+      // Obter URL pública
+      const { data } = supabase.storage
+        .from('fotos')
+        .getPublicUrl(filePath)
+
+      return data.publicUrl
+    } catch (error) {
+      console.error('Erro no upload da foto:', error)
+      return null
+    } finally {
+      setUploadingFoto(false)
+    }
+  }
+
   const resetForm = () => {
     setShowForm(false)
     setEditingProfissional(null)
     setModoEspecialidade('selecionar')
     setNovaEspecialidade('')
     setEspecialidadesSelecionadas([])
+    setFotoFile(null)
+    setFotoPreview(null)
     setEditForm({
       nome: '',
       email: '',
@@ -181,6 +264,15 @@ export default function ProfissionaisPage() {
           .eq('profissional_id', editingProfissional.id)
       }
 
+      // Upload da foto (se houver)
+      let fotoUrl = editingProfissional.foto_url
+      if (fotoFile) {
+        const novaFotoUrl = await uploadFoto(editingProfissional.id)
+        if (novaFotoUrl) {
+          fotoUrl = novaFotoUrl
+        }
+      }
+
       // Atualizar profissional
       const { error } = await supabase
         .from('profissionais')
@@ -189,7 +281,8 @@ export default function ProfissionaisPage() {
           email: editForm.email,
           telefone: editForm.telefone,
           especialidades: especialidadesSelecionadas,
-          ativo: editForm.ativo
+          ativo: editForm.ativo,
+          foto_url: fotoUrl
         })
         .eq('id', editingProfissional.id)
 
@@ -235,6 +328,8 @@ export default function ProfissionaisPage() {
 
     setEditingProfissional(profissional)
     setEspecialidadesSelecionadas(especialidadesExistentes)
+    setFotoPreview(profissional.foto_url || null)
+    setFotoFile(null)
     setEditForm({
       nome: profissional.nome || '',
       email: profissional.email || '',
@@ -291,13 +386,21 @@ export default function ProfissionaisPage() {
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="text-3xl">
-                    {getEspecialidadeIcon(
-                      Array.isArray(profissional.especialidades)
-                        ? profissional.especialidades[0]
-                        : profissional.especialidades
-                    )}
-                  </div>
+                  {profissional.foto_url ? (
+                    <img
+                      src={profissional.foto_url}
+                      alt={profissional.nome}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-purple-500"
+                    />
+                  ) : (
+                    <div className="text-3xl">
+                      {getEspecialidadeIcon(
+                        Array.isArray(profissional.especialidades)
+                          ? profissional.especialidades[0]
+                          : profissional.especialidades
+                      )}
+                    </div>
+                  )}
                   <div>
                     <CardTitle className="text-white text-lg">{profissional.nome}</CardTitle>
                     {profissional.especialidades && (
@@ -422,6 +525,40 @@ export default function ProfissionaisPage() {
                     placeholder="Ex: (11) 99999-9999"
                     className="w-full bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
                   />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm text-slate-400 mb-1">Foto do Profissional</label>
+                <div className="flex items-center space-x-4">
+                  {fotoPreview && (
+                    <img
+                      src={fotoPreview}
+                      alt="Preview"
+                      className="w-20 h-20 rounded-full object-cover border-2 border-purple-500"
+                    />
+                  )}
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFotoChange}
+                      className="w-full bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-purple-600 file:text-white hover:file:bg-purple-700 file:cursor-pointer"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Máximo 5MB - JPG, PNG, WEBP</p>
+                  </div>
+                  {fotoPreview && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFotoFile(null)
+                        setFotoPreview(null)
+                      }}
+                      className="text-red-400 hover:text-red-300 text-sm"
+                    >
+                      Remover
+                    </button>
+                  )}
                 </div>
               </div>
 
