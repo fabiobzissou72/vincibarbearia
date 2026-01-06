@@ -182,8 +182,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Pegar horário atual para filtrar horários passados (apenas se for hoje)
-    const agora = new Date()
+    // Pegar horário atual de São Paulo para filtrar horários passados (apenas se for hoje)
+    // CORRIGIDO: Usar timezone de São Paulo/Brasília
+    const agoraSP = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
     const dataAtual = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
     const isHoje = dataBR === dataAtual
 
@@ -192,7 +193,7 @@ export async function GET(request: NextRequest) {
 
     console.log('[DEBUG] Verificando horários - Data solicitada:', dataBR, 'Data atual:', dataAtual, 'É hoje?', isHoje)
     if (isHoje) {
-      console.log('[DEBUG] Hora atual:', agora.toLocaleTimeString('pt-BR'))
+      console.log('[DEBUG] Hora atual (SP):', agoraSP.toLocaleTimeString('pt-BR'), '- Timestamp:', agoraSP.getTime())
     }
 
     // Verificar disponibilidade de cada slot
@@ -203,11 +204,11 @@ export async function GET(request: NextRequest) {
       // Se for hoje, verificar se o horário já passou + antecedência mínima
       if (isHoje) {
         const [horaSlot, minSlot] = slot.split(':').map(Number)
-        const horarioSlot = new Date()
+        const horarioSlot = new Date(agoraSP.getTime()) // Usar hora de SP como base
         horarioSlot.setHours(horaSlot, minSlot, 0, 0)
 
-        // Calcular horário mínimo permitido (agora + 30min)
-        const horarioMinimoPermitido = new Date(agora.getTime() + ANTECEDENCIA_MINUTOS * 60 * 1000)
+        // Calcular horário mínimo permitido (agora SP + 30min)
+        const horarioMinimoPermitido = new Date(agoraSP.getTime() + ANTECEDENCIA_MINUTOS * 60 * 1000)
 
         if (horarioSlot < horarioMinimoPermitido) {
           console.log(`[DEBUG] Horário ${slot} descartado - já passou ou muito próximo`)
