@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { verificarAutenticacao } from '@/lib/auth'
+import { dispararWebhooks } from '@/lib/webhooks'
 
 export const dynamic = 'force-dynamic'
 
@@ -115,30 +116,30 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Disparar webhook de reagendamento (se configurado)
-    try {
-      const { data: config } = await supabase
-        .from('configuracoes')
-        .select('webhook_url')
-        .single()
-
-      if (config?.webhook_url) {
-        await fetch(config.webhook_url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tipo: 'reagendamento',
-            agendamento: agendamentoAtualizado,
-            data_anterior: agendamento.data_agendamento,
-            hora_anterior: agendamento.hora_inicio,
-            nova_data: dataFormatada,
-            nova_hora: nova_hora
-          })
-        }).catch(err => console.error('Erro ao enviar webhook:', err))
-      }
-    } catch (err) {
-      console.error('Erro ao processar webhook:', err)
-    }
+    // Disparar webhooks (global + barbeiro) e AGUARDAR conclusão
+    // IMPORTANTE: Sem await, o Vercel mata a função antes do webhook ser disparado
+    await dispararWebhooks(
+      agendamento.profissional_id,
+      {
+        tipo: 'reagendamento',
+        agendamento_id: agendamento.id,
+        cliente: {
+          nome: agendamento.nome_cliente,
+          telefone: agendamento.telefone
+        },
+        agendamento: {
+          data: dataFormatada,
+          hora: nova_hora,
+          barbeiro: agendamento.profissionais?.nome || agendamento.Barbeiro || 'Profissional',
+          valor_total: agendamento.valor
+        },
+        reagendamento: {
+          data_anterior: agendamento.data_agendamento,
+          hora_anterior: agendamento.hora_inicio
+        }
+      },
+      'reagendamento'
+    )
 
     return NextResponse.json({
       success: true,

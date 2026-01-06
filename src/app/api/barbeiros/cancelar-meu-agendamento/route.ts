@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { dispararWebhooks } from '@/lib/webhooks'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,6 +60,30 @@ export async function POST(request: NextRequest) {
           message: 'Erro ao cancelar agendamento'
         }, { status: 500 })
       }
+
+      // Disparar webhooks (global + barbeiro) e AGUARDAR conclusão
+      await dispararWebhooks(
+        agendamento.profissional_id,
+        {
+          tipo: 'cancelamento',
+          agendamento_id: agendamento.id,
+          cliente: {
+            nome: agendamento.nome_cliente,
+            telefone: agendamento.telefone
+          },
+          agendamento: {
+            data: agendamento.data_agendamento,
+            hora: agendamento.hora_inicio,
+            barbeiro: agendamento.profissionais?.nome || 'Barbeiro',
+            valor_total: agendamento.valor
+          },
+          cancelamento: {
+            cancelado_por: 'barbeiro',
+            motivo: 'Cancelado via WhatsApp'
+          }
+        },
+        'cancelamento'
+      )
 
       // Mensagem de sucesso
       const mensagemWhatsApp = `✅ *Agendamento cancelado com sucesso!*\n\n` +
@@ -205,39 +230,29 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
-    // Disparar webhook de cancelamento (se configurado)
-    try {
-      const { data: config } = await supabase
-        .from('configuracoes')
-        .select('webhook_url, notif_cancelamento')
-        .single()
-
-      if (config?.webhook_url && config?.notif_cancelamento) {
-        const payload = {
-          tipo: 'cancelamento',
-          agendamento_id: agendamento.id,
-          cliente: {
-            nome: agendamento.nome_cliente,
-            telefone: agendamento.telefone
-          },
-          agendamento: {
-            data: agendamento.data_agendamento,
-            hora: agendamento.hora_inicio,
-            barbeiro: barbeiro.nome,
-            cancelado_por: `barbeiro (${barbeiro.nome})`,
-            motivo: `Cancelado pelo barbeiro via WhatsApp`
-          }
+    // Disparar webhooks (global + barbeiro) e AGUARDAR conclusão
+    await dispararWebhooks(
+      barbeiro.id,
+      {
+        tipo: 'cancelamento',
+        agendamento_id: agendamento.id,
+        cliente: {
+          nome: agendamento.nome_cliente,
+          telefone: agendamento.telefone
+        },
+        agendamento: {
+          data: agendamento.data_agendamento,
+          hora: agendamento.hora_inicio,
+          barbeiro: barbeiro.nome,
+          valor_total: agendamento.valor
+        },
+        cancelamento: {
+          cancelado_por: `barbeiro (${barbeiro.nome})`,
+          motivo: 'Cancelado pelo barbeiro via WhatsApp'
         }
-
-        fetch(config.webhook_url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        }).catch(err => console.error('Erro no webhook:', err))
-      }
-    } catch (webhookError) {
-      console.error('Erro no webhook:', webhookError)
-    }
+      },
+      'cancelamento'
+    )
 
     // Mensagem de sucesso para WhatsApp
     const mensagemWhatsApp = `✅ *Agendamento cancelado com sucesso!*\n\n` +
