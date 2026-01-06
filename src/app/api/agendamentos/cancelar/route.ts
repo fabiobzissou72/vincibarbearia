@@ -316,8 +316,9 @@ export async function DELETE(request: NextRequest) {
       }
     }
 
-    // Disparar webhooks de forma assíncrona (não bloqueia a resposta)
-    dispararWebhooks()
+    // Disparar webhooks e AGUARDAR conclusão (crítico para garantir que webhooks sejam enviados)
+    // IMPORTANTE: Sem await, o Vercel mata a função antes do webhook ser disparado
+    await dispararWebhooks()
 
     return NextResponse.json({
       success: true,
