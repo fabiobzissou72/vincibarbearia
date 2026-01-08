@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { verificarAutenticacao } from '@/lib/auth'
+import { salvarCancelamentoNoRedis } from '@/lib/redis-history'
 
 export const dynamic = 'force-dynamic'
 
@@ -319,6 +320,21 @@ export async function DELETE(request: NextRequest) {
     // Disparar webhooks e AGUARDAR conclusão (crítico para garantir que webhooks sejam enviados)
     // IMPORTANTE: Sem await, o Vercel mata a função antes do webhook ser disparado
     await dispararWebhooks()
+
+    // Salvar no Redis para histórico do cliente (WhatsApp)
+    // Executa de forma assíncrona, não bloqueia a resposta
+    salvarCancelamentoNoRedis({
+      cliente_nome: agendamento.nome_cliente,
+      telefone: agendamento.telefone,
+      data: agendamento.data_agendamento,
+      hora: agendamento.hora_inicio,
+      barbeiro: agendamento.Barbeiro,
+      motivo: motivo || 'Sem motivo informado',
+      cancelado_por: cancelado_por,
+      horas_antecedencia: Math.max(0, horasAntecedencia)
+    }, 'dashboard').catch(error => {
+      console.error('⚠️ Erro ao salvar cancelamento no Redis (não crítico):', error)
+    })
 
     return NextResponse.json({
       success: true,

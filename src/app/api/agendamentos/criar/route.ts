@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 import { verificarAutenticacao } from '@/lib/auth'
+import { salvarAgendamentoNoRedis } from '@/lib/redis-history'
 
 export const dynamic = 'force-dynamic'
 
@@ -532,6 +533,21 @@ export async function POST(request: NextRequest) {
     // Disparar webhooks e AGUARDAR conclusão (crítico para garantir que webhooks sejam enviados)
     // IMPORTANTE: Sem await, o Vercel mata a função antes do webhook ser disparado
     await dispararWebhooks()
+
+    // Salvar no Redis para histórico do cliente (WhatsApp)
+    // Executa de forma assíncrona, não bloqueia a resposta
+    salvarAgendamentoNoRedis({
+      cliente_nome: cliente_nome,
+      telefone: telefone,
+      data: dataBR,
+      hora: hora,
+      barbeiro: profissionalSelecionado.nome,
+      servicos: servicos.map(s => s.nome),
+      valor: valorTotal,
+      status: 'agendado'
+    }, 'dashboard').catch(error => {
+      console.error('⚠️ Erro ao salvar no Redis (não crítico):', error)
+    })
 
     return NextResponse.json({
       success: true,
