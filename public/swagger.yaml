@@ -685,12 +685,13 @@ paths:
       description: |
         Retorna os agendamentos da SEMANA ATUAL para um barbeiro específico.
 
+        **⚠️ Endpoint PÚBLICO (não requer autenticação)**
+        Projetado para uso via WhatsApp/N8N
+
         **⚠️ ESCOLHA UMA das opções abaixo para buscar:**
         - Por telefone (campo: telefone)
         - Por nome do barbeiro (campo: barbeiro_nome)
         - Por ID do barbeiro (campo: barbeiro_id)
-      security:
-        - BearerAuth: []
       parameters:
         - name: telefone
           in: query
@@ -740,6 +741,9 @@ paths:
       summary: Agendamentos do barbeiro hoje
       description: |
         Retorna todos os agendamentos do dia atual do barbeiro.
+
+        **⚠️ Endpoint PÚBLICO (não requer autenticação)**
+        Projetado para uso via WhatsApp/N8N
 
         **Exemplo de uso:**
         ```bash
