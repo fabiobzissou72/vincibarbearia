@@ -48,8 +48,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 2. Data de hoje no formato DD/MM/YYYY
-    const hoje = new Date()
+    // 2. Data de hoje no formato DD/MM/YYYY (timezone Brasília)
+    const hoje = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }))
     const dia = String(hoje.getDate()).padStart(2, '0')
     const mes = String(hoje.getMonth() + 1).padStart(2, '0')
     const ano = hoje.getFullYear()
@@ -65,13 +65,13 @@ export async function GET(request: NextRequest) {
         hora_fim,
         status,
         nome_cliente,
-        telefone_cliente,
+        telefone,
         compareceu,
         agendamento_servicos (
           servicos (
             nome,
             preco,
-            duracao
+            duracao_minutos
           )
         )
       `)
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       const servicos = ag.agendamento_servicos?.map((as: any) => ({
         nome: as.servicos.nome,
         preco: as.servicos.preco,
-        duracao: as.servicos.duracao
+        duracao_minutos: as.servicos.duracao_minutos
       })) || []
 
       const valorTotal = servicos.reduce((acc: number, s: any) => acc + parseFloat(s.preco), 0)
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
         hora_fim: ag.hora_fim,
         status: ag.status,
         cliente: ag.nome_cliente,
-        telefone: ag.telefone_cliente,
+        telefone: ag.telefone,
         compareceu: ag.compareceu,
         servicos: servicos,
         valor_total: valorTotal
