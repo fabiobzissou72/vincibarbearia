@@ -689,6 +689,8 @@ paths:
         - Por telefone (campo: telefone)
         - Por nome do barbeiro (campo: barbeiro_nome)
         - Por ID do barbeiro (campo: barbeiro_id)
+      security:
+        - BearerAuth: []
       parameters:
         - name: telefone
           in: query
