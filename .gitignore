@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 nul
+
+# Aplicativo cliente (repositório separado)
+aplicativo_cliente/
