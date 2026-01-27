@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Settings, Building2, Clock, DollarSign, Bell, Users, Save, Link, Key, Eye, EyeOff, Copy, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Settings, Building2, Clock, DollarSign, Bell, Users, Save, Link, Key, Eye, EyeOff, Copy, RefreshCw, AlertTriangle, Lock } from 'lucide-react'
 import { gerarTokenAPI } from '@/lib/auth'
 
 interface HorarioDia {
@@ -83,6 +83,14 @@ export default function ConfiguracoesPage() {
   const [webhooksBarbeiros, setWebhooksBarbeiros] = useState<any[]>([])
   const [editandoWebhook, setEditandoWebhook] = useState<string | null>(null)
   const [webhookTemp, setWebhookTemp] = useState({ url: '', eventos: ['novo_agendamento', 'cancelamento', 'confirmacao'], ativo: true })
+
+  // Estados para alteração de senha
+  const [senhaAtual, setSenhaAtual] = useState('')
+  const [novaSenha, setNovaSenha] = useState('')
+  const [confirmarSenha, setConfirmarSenha] = useState('')
+  const [alterandoSenha, setAlterandoSenha] = useState(false)
+  const [mostrarSenhaAtual, setMostrarSenhaAtual] = useState(false)
+  const [mostrarNovaSenha, setMostrarNovaSenha] = useState(false)
 
   useEffect(() => {
     loadConfig()
@@ -301,6 +309,62 @@ export default function ConfiguracoesPage() {
     } catch (error) {
       console.error('Erro ao salvar webhook:', error)
       alert('❌ Erro ao salvar webhook')
+    }
+  }
+
+  const handleAlterarSenha = async () => {
+    if (!novaSenha || !senhaAtual) {
+      alert('Preencha todos os campos')
+      return
+    }
+
+    if (novaSenha !== confirmarSenha) {
+      alert('As senhas não conferem')
+      return
+    }
+
+    if (novaSenha.length < 6) {
+      alert('A nova senha deve ter pelo menos 6 caracteres')
+      return
+    }
+
+    try {
+      setAlterandoSenha(true)
+
+      // Buscar ID do profissional logado
+      const profissionalStr = localStorage.getItem('profissional')
+      if (!profissionalStr) {
+        alert('Sessão expirada. Faça login novamente.')
+        return
+      }
+
+      const profissional = JSON.parse(profissionalStr)
+
+      const response = await fetch('/api/auth/alterar-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profissionalId: profissional.profissional.id,
+          senhaAtual,
+          novaSenha
+        })
+      })
+
+      const data = await response.json()
+
+      if (!data.success) {
+        alert(data.error || 'Erro ao alterar senha')
+      } else {
+        alert('Senha alterada com sucesso!')
+        setSenhaAtual('')
+        setNovaSenha('')
+        setConfirmarSenha('')
+      }
+    } catch (error) {
+      console.error('Erro ao alterar senha:', error)
+      alert('Erro ao conectar com o servidor')
+    } finally {
+      setAlterandoSenha(false)
     }
   }
 
@@ -680,6 +744,83 @@ export default function ConfiguracoesPage() {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Minha Conta - Alterar Senha */}
+        <Card className="bg-purple-900/20 border-purple-700/50">
+          <CardHeader>
+            <CardTitle className="text-white flex items-center space-x-2">
+              <Lock className="w-5 h-5 text-purple-400" />
+              <span>Minha Conta</span>
+            </CardTitle>
+            <p className="text-sm text-purple-300 mt-1">
+              Altere sua senha de acesso ao sistema
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="block text-sm text-purple-300 mb-1">Senha Atual</label>
+              <div className="flex gap-2">
+                <input
+                  type={mostrarSenhaAtual ? "text" : "password"}
+                  value={senhaAtual}
+                  onChange={(e) => setSenhaAtual(e.target.value)}
+                  placeholder="Digite sua senha atual"
+                  className="flex-1 px-3 py-2 bg-slate-800 border border-purple-600/50 rounded text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarSenhaAtual(!mostrarSenhaAtual)}
+                  className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+                >
+                  {mostrarSenhaAtual ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-purple-300 mb-1">Nova Senha</label>
+              <div className="flex gap-2">
+                <input
+                  type={mostrarNovaSenha ? "text" : "password"}
+                  value={novaSenha}
+                  onChange={(e) => setNovaSenha(e.target.value)}
+                  placeholder="Digite a nova senha (mínimo 6 caracteres)"
+                  className="flex-1 px-3 py-2 bg-slate-800 border border-purple-600/50 rounded text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarNovaSenha(!mostrarNovaSenha)}
+                  className="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+                >
+                  {mostrarNovaSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm text-purple-300 mb-1">Confirmar Nova Senha</label>
+              <input
+                type="password"
+                value={confirmarSenha}
+                onChange={(e) => setConfirmarSenha(e.target.value)}
+                placeholder="Digite novamente a nova senha"
+                className="w-full px-3 py-2 bg-slate-800 border border-purple-600/50 rounded text-white"
+              />
+              {confirmarSenha && novaSenha !== confirmarSenha && (
+                <p className="text-red-400 text-xs mt-1">As senhas não conferem</p>
+              )}
+            </div>
+
+            <button
+              onClick={handleAlterarSenha}
+              disabled={alterandoSenha || !senhaAtual || !novaSenha || novaSenha !== confirmarSenha}
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-slate-600 disabled:to-slate-700 text-white rounded-lg transition-colors disabled:cursor-not-allowed"
+            >
+              <Lock className="w-4 h-4" />
+              <span>{alterandoSenha ? 'Alterando...' : 'Alterar Senha'}</span>
+            </button>
           </CardContent>
         </Card>
       </div>
