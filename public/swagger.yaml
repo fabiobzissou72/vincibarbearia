@@ -1,0 +1,2176 @@
+openapi: 3.0.3
+info:
+  title: Vinci Barbearia API
+  description: |
+    API completa para gerenciamento de barbearia incluindo agendamentos, barbeiros, clientes, produtos, planos e webhooks.
+
+    ## Autenticação
+    A maioria dos endpoints requer autenticação via Bearer Token no header:
+    ```
+    Authorization: Bearer SEU_TOKEN_AQUI
+    ```
+
+    ## Formato de Datas
+    - Datas são no formato brasileiro: DD/MM/YYYY ou YYYY-MM-DD
+    - Horários são no formato: HH:MM (24h)
+
+    ## Webhooks
+    O sistema suporta dois tipos de webhooks:
+    1. **Webhook Global**: Configurado na tabela `configuracoes`, dispara para todos os eventos
+    2. **Webhooks de Barbeiros**: Webhooks personalizados por profissional
+
+  version: 3.0.0
+  contact:
+    name: Vinci Barbearia
+    url: https://vincebarbearia.vercel.app
+
+servers:
+  - url: https://vincebarbearia.vercel.app/api
+    description: Produção
+  - url: http://localhost:3000/api
+    description: Desenvolvimento
+
+tags:
+  - name: Agendamentos
+    description: Gerenciamento completo de agendamentos
+  - name: Barbeiros
+    description: APIs específicas para barbeiros e gestão de profissionais
+  - name: Clientes
+    description: Gerenciamento de clientes
+  - name: Serviços
+    description: Gerenciamento de serviços oferecidos
+  - name: Produtos
+    description: Gerenciamento de produtos
+  - name: Planos
+    description: Gerenciamento de planos de fidelidade
+  - name: Webhooks
+    description: Configuração de webhooks
+  - name: Cron
+    description: Endpoints para tarefas agendadas
+  - name: Admin
+    description: Funcionalidades administrativas
+  - name: Debug
+    description: Ferramentas de depuração
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token de autenticação da API
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Mensagem de erro
+        errors:
+          type: array
+          items:
+            type: string
+
+    Agendamento:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cliente_id:
+          type: string
+          format: uuid
+        profissional_id:
+          type: string
+          format: uuid
+        data_agendamento:
+          type: string
+          example: "19/12/2025"
+        hora_inicio:
+          type: string
+          example: "14:30"
+        hora_fim:
+          type: string
+          example: "15:30"
+        nome_cliente:
+          type: string
+        telefone:
+          type: string
+        valor:
+          type: number
+          format: float
+        status:
+          type: string
+          enum: [agendado, confirmado, em_andamento, concluido, cancelado]
+        observacoes:
+          type: string
+
+    Servico:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome:
+          type: string
+        descricao:
+          type: string
+        preco:
+          type: number
+        duracao_minutos:
+          type: integer
+        categoria:
+          type: string
+        ativo:
+          type: boolean
+
+    Cliente:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nome_completo:
+          type: string
+        telefone:
+          type: string
+        email:
+          type: string
+        data_nascimento:
+          type: string
+        profissao:
+          type: string
+        estado_civil:
+          type: string
+        tem_filhos:
+          type: boolean
+        is_vip:
+          type: boolean
+        observacoes:
+          type: string
+
+paths:
+  # =====================
+  # AGENDAMENTOS
+  # =====================
+
+  /agendamentos:
+    get:
+      tags:
+        - Agendamentos
+      summary: Listar agendamentos
+      description: Retorna lista de agendamentos com filtros opcionais
+      parameters:
+        - name: data
+          in: query
+          schema:
+            type: string
+          description: Filtrar por data específica (formato brasileiro DD/MM/YYYY)
+        - name: profissional_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por profissional
+      responses:
+        '200':
+          description: Lista de agendamentos retornada com sucesso
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Agendamento'
+
+  /agendamentos/criar:
+    post:
+      tags:
+        - Agendamentos
+      summary: Criar novo agendamento
+      description: |
+        Cria um novo agendamento com sistema de rodízio automático.
+
+        **Sistema de Rodízio:**
+        - Se barbeiro_preferido informado: Agenda com ele (se disponível)
+        - Se não informado: Usa rodízio balanceado (menos agendamentos do dia)
+
+        **Validações:**
+        - Verifica conflito de horário
+        - Sugere próximos horários se ocupado
+        - Dispara webhooks global e personalizado do barbeiro
+
+        **Exemplo de uso:**
+        ```bash
+        curl -X POST 'https://vincebarbearia.vercel.app/api/agendamentos/criar' \
+          -H 'Authorization: Bearer SEU_TOKEN' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "cliente_nome": "João Silva",
+            "telefone": "11999999999",
+            "data": "2025-12-20",
+            "hora": "14:30",
+            "servico_ids": ["uuid-servico-1"],
+            "barbeiro_preferido": "Hiago"
+          }'
+        ```
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cliente_nome
+                - telefone
+                - data
+                - hora
+                - servico_ids
+              properties:
+                cliente_nome:
+                  type: string
+                  description: Nome do cliente
+                telefone:
+                  type: string
+                  description: Telefone do cliente
+                data:
+                  type: string
+                  description: Data do agendamento (YYYY-MM-DD ou DD-MM-YYYY)
+                  example: "2025-12-20"
+                hora:
+                  type: string
+                  description: Hora de início (HH:MM)
+                  example: "14:30"
+                servico_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: Array de IDs dos serviços
+                barbeiro_preferido:
+                  type: string
+                  description: Nome ou UUID do barbeiro preferido (opcional)
+                observacoes:
+                  type: string
+                cliente_id:
+                  type: string
+                  format: uuid
+                  description: ID do cliente existente (opcional)
+            examples:
+              com_barbeiro:
+                summary: Agendamento com barbeiro específico
+                value:
+                  cliente_nome: "João Silva"
+                  telefone: "11999999999"
+                  data: "2025-12-20"
+                  hora: "14:30"
+                  servico_ids: ["uuid1", "uuid2"]
+                  barbeiro_preferido: "Hiago"
+              rodizio:
+                summary: Agendamento com rodízio automático
+                value:
+                  cliente_nome: "Maria Santos"
+                  telefone: "11988888888"
+                  data: "2025-12-20"
+                  hora: "15:00"
+                  servico_ids: ["uuid1"]
+      responses:
+        '201':
+          description: Agendamento criado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      agendamento_id:
+                        type: string
+                        format: uuid
+                      barbeiro_atribuido:
+                        type: string
+                      data:
+                        type: string
+                      horario:
+                        type: string
+                      valor_total:
+                        type: number
+                      duracao_total:
+                        type: integer
+        '409':
+          description: Conflito de horário
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      barbeiro:
+                        type: string
+                      horario_solicitado:
+                        type: string
+                      sugestoes:
+                        type: array
+                        items:
+                          type: string
+
+  /agendamentos/horarios-disponiveis:
+    get:
+      tags:
+        - Agendamentos
+      summary: Consultar horários disponíveis
+      description: |
+        Retorna todos os horários disponíveis para uma data específica.
+
+        **Validações:**
+        - Verifica dia da semana e horário de funcionamento
+        - Calcula sobreposição considerando duração dos serviços
+        - Respeita antecedência mínima de 30 minutos (para dia atual)
+
+        **Exemplo de uso:**
+        ```bash
+        curl -X GET 'https://vincebarbearia.vercel.app/api/agendamentos/horarios-disponiveis?data=2025-12-20&barbeiro=Hiago'
+        ```
+      parameters:
+        - name: data
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "2025-12-20"
+          description: Data para consultar (YYYY-MM-DD)
+        - name: barbeiro
+          in: query
+          schema:
+            type: string
+          description: Nome do barbeiro específico (opcional)
+        - name: servico_ids
+          in: query
+          schema:
+            type: string
+          description: IDs dos serviços separados por vírgula (para calcular duração)
+      responses:
+        '200':
+          description: Horários disponíveis retornados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      data:
+                        type: string
+                      dia_semana:
+                        type: string
+                      horario_abertura:
+                        type: string
+                      horario_fechamento:
+                        type: string
+                      duracao_estimada:
+                        type: integer
+                      barbeiros_disponiveis:
+                        type: integer
+                      horarios:
+                        type: array
+                        items:
+                          type: string
+                      total_disponiveis:
+                        type: integer
+
+  /agendamentos/cancelar:
+    delete:
+      tags:
+        - Agendamentos
+      summary: Cancelar agendamento
+      description: |
+        Cancela um agendamento com validação de prazo (2h antes por padrão).
+
+        **Regras:**
+        - Cliente pode cancelar até 2h antes
+        - Admin/Barbeiro podem cancelar a qualquer momento
+        - Sistema registra o cancelamento no histórico
+        - Dispara webhooks configurados
+
+        **Exemplo de uso:**
+        ```bash
+        curl -X DELETE 'https://vincebarbearia.vercel.app/api/agendamentos/cancelar' \
+          -H 'Authorization: Bearer SEU_TOKEN' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "agendamento_id": "uuid-agendamento",
+            "motivo": "Cliente cancelou",
+            "cancelado_por": "cliente"
+          }'
+        ```
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - agendamento_id
+              properties:
+                agendamento_id:
+                  type: string
+                  format: uuid
+                motivo:
+                  type: string
+                cancelado_por:
+                  type: string
+                  enum: [cliente, barbeiro, admin, sistema]
+                  default: cliente
+                forcar:
+                  type: boolean
+                  description: Ignora validação de prazo (apenas admin)
+                  default: false
+      responses:
+        '200':
+          description: Agendamento cancelado com sucesso
+        '400':
+          description: Prazo insuficiente para cancelamento
+        '404':
+          description: Agendamento não encontrado
+
+  /agendamentos/reagendar:
+    post:
+      tags:
+        - Agendamentos
+      summary: Reagendar agendamento existente
+      description: Move um agendamento para nova data/horário
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - agendamento_id
+                - nova_data
+                - nova_hora
+              properties:
+                agendamento_id:
+                  type: string
+                  format: uuid
+                nova_data:
+                  type: string
+                  example: "20-12-2025"
+                nova_hora:
+                  type: string
+                  example: "15:30"
+      responses:
+        '200':
+          description: Reagendamento realizado com sucesso
+        '409':
+          description: Barbeiro já possui agendamento no novo horário
+
+  /agendamentos/checkin:
+    post:
+      tags:
+        - Agendamentos
+      summary: Realizar check-in do cliente
+      description: Marca a chegada do cliente e inicia o atendimento
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - agendamento_id
+              properties:
+                agendamento_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Check-in realizado com sucesso
+
+  /agendamentos/confirmar-comparecimento:
+    post:
+      tags:
+        - Agendamentos
+      summary: Confirmar comparecimento do cliente
+      description: Registra que o cliente confirmou presença
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - agendamento_id
+              properties:
+                agendamento_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Comparecimento confirmado
+
+  /agendamentos/finalizar:
+    post:
+      tags:
+        - Agendamentos
+      summary: Finalizar atendimento
+      description: Marca o agendamento como concluído
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - agendamento_id
+              properties:
+                agendamento_id:
+                  type: string
+                  format: uuid
+                observacoes_finais:
+                  type: string
+      responses:
+        '200':
+          description: Atendimento finalizado com sucesso
+
+  /agendamentos/buscar-barbeiro-rodizio:
+    get:
+      tags:
+        - Agendamentos
+      summary: Buscar próximo barbeiro do rodízio
+      description: |
+        Retorna o próximo barbeiro disponível no rodízio.
+        Usado pelo formulário de agendamento quando não há barbeiro preferido.
+      parameters:
+        - name: data
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Data do agendamento (YYYY-MM-DD) - OBRIGATÓRIO
+          example: "2025-12-20"
+        - name: hora
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Hora do agendamento (HH:MM) - OBRIGATÓRIO
+          example: "14:30"
+        - name: duracao
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Duração estimada em minutos (opcional, padrão 30)
+          example: 30
+      responses:
+        '200':
+          description: Barbeiro do rodízio retornado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  barbeiro_id:
+                    type: string
+                    format: uuid
+                  nome:
+                    type: string
+                  agendamentos_hoje:
+                    type: integer
+        '400':
+          description: Parâmetros data e hora são obrigatórios
+
+  # =====================
+  # BARBEIROS
+  # =====================
+
+  /barbeiros/listar:
+    get:
+      tags:
+        - Barbeiros
+      summary: Listar todos os barbeiros
+      description: |
+        Retorna lista completa de barbeiros com estatísticas.
+
+        **Retorna:**
+        - Lista de barbeiros ordenados por quantidade de atendimentos
+        - Próximo barbeiro do rodízio
+        - Estatísticas de cada barbeiro
+      parameters:
+        - name: ativo
+          in: query
+          schema:
+            type: boolean
+            default: true
+          description: Filtrar apenas barbeiros ativos
+      responses:
+        '200':
+          description: Lista de barbeiros retornada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  proximo_rodizio:
+                    type: object
+                  barbeiros:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                        nome:
+                          type: string
+                        telefone:
+                          type: string
+                        email:
+                          type: string
+                        especialidades:
+                          type: string
+                        ativo:
+                          type: boolean
+                        estatisticas:
+                          type: object
+                          properties:
+                            total_atendimentos:
+                              type: integer
+                            atendimentos_hoje:
+                              type: integer
+                            total_concluidos:
+                              type: integer
+
+  /barbeiros/agendamentos-semana:
+    get:
+      tags:
+        - Barbeiros
+      summary: Buscar agendamentos da semana do barbeiro
+      description: |
+        Retorna os agendamentos da SEMANA ATUAL para um barbeiro específico.
+
+        **⚠️ Endpoint PÚBLICO (não requer autenticação)**
+        Projetado para uso via WhatsApp/N8N
+
+        **⚠️ ESCOLHA UMA das opções abaixo para buscar:**
+        - Por telefone (campo: telefone)
+        - Por nome do barbeiro (campo: barbeiro_nome)
+        - Por ID do barbeiro (campo: barbeiro_id)
+      parameters:
+        - name: telefone
+          in: query
+          required: false
+          schema:
+            type: string
+          description: "[OPÇÃO 1] Telefone do barbeiro (com ou sem DDI)"
+          example: "5511999999999"
+        - name: barbeiro_nome
+          in: query
+          required: false
+          schema:
+            type: string
+          description: "[OPÇÃO 2] Nome do barbeiro"
+          example: "Hiago"
+        - name: barbeiro_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "[OPÇÃO 3] UUID do barbeiro"
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Agendamentos da semana retornados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  barbeiro:
+                    type: object
+                  periodo:
+                    type: object
+                  resumo:
+                    type: object
+                  agendamentos_por_dia:
+                    type: object
+        '404':
+          description: Barbeiro não encontrado
+
+  /barbeiros/agendamentos-hoje:
+    get:
+      tags:
+        - Barbeiros
+      summary: Agendamentos do barbeiro hoje
+      description: |
+        Retorna todos os agendamentos do dia atual do barbeiro.
+
+        **⚠️ Endpoint PÚBLICO (não requer autenticação)**
+        Projetado para uso via WhatsApp/N8N
+
+        **Exemplo de uso:**
+        ```bash
+        curl -X GET 'https://vincebarbearia.vercel.app/api/barbeiros/agendamentos-hoje?telefone=5511999999999'
+        ```
+      parameters:
+        - name: telefone
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Telefone do barbeiro (com ou sem DDI)
+          example: "5511999999999"
+      responses:
+        '200':
+          description: Agendamentos de hoje retornados
+
+  /barbeiro/agendamentos:
+    get:
+      tags:
+        - Barbeiros
+      summary: 🆕 Agendamentos do Barbeiro (Recomendada para IA/Chatbots)
+      description: |
+        **⭐ API NOVA E RECOMENDADA** para barbeiros consultarem agendamentos com linguagem natural.
+
+        Ideal para integração com IA, chatbots e WhatsApp!
+
+        **Filtros aceitos no parâmetro `quando`:**
+        - **Dias relativos:** `hoje`, `amanha`
+        - **Dias da semana:** `segunda`, `terca`, `quarta`, `quinta`, `sexta`, `sabado`, `domingo`
+        - **Data específica:** `21/12/2024` ou `2024-12-21`
+        - **Sem filtro:** retorna todos os agendamentos futuros
+
+        **Perguntas que a IA pode responder:**
+        - "Quais meus agendamentos hoje?" → `quando=hoje`
+        - "Tenho cliente amanhã?" → `quando=amanha`
+        - "Quantos clientes tenho na terça?" → `quando=terca`
+        - "Mostra minha agenda de quinta" → `quando=quinta`
+        - "Agendamentos do dia 25/12" → `quando=25/12/2024`
+        - "Quais meus próximos clientes?" → sem parâmetro `quando`
+
+        **Exemplo de uso:**
+        ```bash
+        # Agendamentos de hoje
+        curl -X GET 'https://vincebarbearia.vercel.app/api/barbeiro/agendamentos?barbeiro=Hiago&quando=hoje' \
+          -H 'Authorization: Bearer SEU_TOKEN'
+
+        # Próxima terça-feira
+        curl -X GET 'https://vincebarbearia.vercel.app/api/barbeiro/agendamentos?barbeiro=Hiago&quando=terca' \
+          -H 'Authorization: Bearer SEU_TOKEN'
+        ```
+
+        **Diferenças em relação à API antiga:**
+        - ✅ Aceita dias da semana naturais (terca, quinta, etc.)
+        - ✅ Mais simples: apenas `barbeiro` e `quando`
+        - ✅ Sem `quando`: retorna todos futuros automaticamente
+        - ✅ Aceita datas em múltiplos formatos
+
+        📖 **Documentação completa:** Ver arquivo `API-BARBEIRO-AGENDAMENTOS.md`
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: barbeiro
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Nome do barbeiro OU UUID do barbeiro
+          example: "Hiago"
+          examples:
+            nome:
+              value: "Hiago"
+              summary: Buscar por nome
+            uuid:
+              value: "1039a091-b264-4c17-8fd6-88732f2112aa"
+              summary: Buscar por UUID
+        - name: quando
+          in: query
+          required: false
+          schema:
+            type: string
+          description: |
+            Filtro de data com linguagem natural:
+            - Dias: `hoje`, `amanha`
+            - Semana: `segunda`, `terca`, `quarta`, `quinta`, `sexta`, `sabado`, `domingo`
+            - Data: `21/12/2024` ou `2024-12-21`
+            - Vazio: todos os agendamentos futuros
+          example: "terca"
+      responses:
+        '200':
+          description: Agendamentos retornados com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      barbeiro:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          nome:
+                            type: string
+                            example: "Hiago"
+                      filtro:
+                        type: string
+                        example: "terca"
+                      descricao:
+                        type: string
+                        example: "terça-feira (24/12/2024)"
+                      data_filtro:
+                        type: string
+                        example: "24/12/2024"
+                      total_agendamentos:
+                        type: integer
+                        example: 5
+                      valor_total:
+                        type: number
+                        format: float
+                        example: 250.00
+                      agendamentos:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                            data:
+                              type: string
+                              example: "24/12/2024"
+                            hora:
+                              type: string
+                              example: "09:00"
+                            cliente:
+                              type: string
+                              example: "João Silva"
+                            telefone:
+                              type: string
+                              example: "11999999999"
+                            servicos:
+                              type: string
+                              example: "Corte + Barba"
+                            valor:
+                              type: number
+                              format: float
+                              example: 50.00
+                            status:
+                              type: string
+                              example: "confirmado"
+                            observacoes:
+                              type: string
+                              nullable: true
+                      mensagem_whatsapp:
+                        type: string
+                        description: Mensagem formatada para enviar no WhatsApp
+        '400':
+          description: Parâmetro inválido ou faltando
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: 'Parâmetro "barbeiro" é obrigatório'
+        '401':
+          description: Token não fornecido
+        '403':
+          description: Token inválido
+        '404':
+          description: Barbeiro não encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: 'Barbeiro "NomeInexistente" não encontrado'
+        '500':
+          description: Erro interno do servidor
+
+  /barbeiros/meus-agendamentos:
+    get:
+      tags:
+        - Barbeiros
+      summary: Meus agendamentos do barbeiro (Legacy)
+      description: |
+        Retorna os agendamentos do barbeiro (para usar no WhatsApp).
+
+        **⚠️ ATENÇÃO:** Para IA/Chatbots, use a nova API `/barbeiro/agendamentos` (recomendada)
+
+        **Períodos disponíveis:**
+        - hoje
+        - amanha
+        - semana
+        - semana_que_vem
+        - mes
+        - mes_que_vem
+        - proximos7dias
+        - proximos30dias
+
+        **Exemplo de uso:**
+        ```bash
+        curl -X GET 'https://vincebarbearia.vercel.app/api/barbeiros/meus-agendamentos?barbeiro_nome=Hiago&periodo=hoje' \
+          -H 'Authorization: Bearer SEU_TOKEN'
+        ```
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: barbeiro_nome
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Nome do barbeiro
+          example: "Hiago"
+        - name: periodo
+          in: query
+          schema:
+            type: string
+            default: hoje
+            enum: [hoje, amanha, semana, semana_que_vem, mes, mes_que_vem, proximos7dias, proximos30dias]
+          description: Período dos agendamentos
+        - name: data_inicio
+          in: query
+          schema:
+            type: string
+          description: Data de início customizada (DD-MM-YYYY ou YYYY-MM-DD)
+        - name: data_fim
+          in: query
+          schema:
+            type: string
+          description: Data fim customizada (DD-MM-YYYY ou YYYY-MM-DD)
+      responses:
+        '200':
+          description: Agendamentos retornados
+
+  /barbeiros/faturamento-mes:
+    get:
+      tags:
+        - Barbeiros
+      summary: Faturamento do barbeiro no mês
+      description: |
+        Retorna o faturamento do MÊS ATUAL (ou mês especificado) para um barbeiro específico.
+
+        **⚠️ ESCOLHA UMA das opções abaixo para identificar o barbeiro:**
+        - Por telefone (campo: telefone)
+        - Por nome do barbeiro (campo: barbeiro_nome)
+        - Por ID do barbeiro (campo: barbeiro_id)
+      parameters:
+        - name: telefone
+          in: query
+          required: false
+          schema:
+            type: string
+          description: "[OPÇÃO 1] Telefone do barbeiro"
+          example: "5511999999999"
+        - name: barbeiro_nome
+          in: query
+          required: false
+          schema:
+            type: string
+          description: "[OPÇÃO 2] Nome do barbeiro"
+          example: "Hiago"
+        - name: barbeiro_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "[OPÇÃO 3] UUID do barbeiro"
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        - name: mes
+          in: query
+          schema:
+            type: string
+          description: "Mês no formato MM (01-12). Padrão: mês atual"
+          example: "12"
+        - name: ano
+          in: query
+          schema:
+            type: string
+          description: "Ano no formato YYYY. Padrão: ano atual"
+          example: "2025"
+      responses:
+        '200':
+          description: Faturamento retornado com sucesso
+
+  /barbeiros/meu-faturamento:
+    get:
+      tags:
+        - Barbeiros
+      summary: Meu faturamento do barbeiro
+      description: Retorna faturamento do barbeiro com opção de período
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: barbeiro_nome
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Nome do barbeiro
+          example: "Hiago"
+        - name: periodo
+          in: query
+          schema:
+            type: string
+            default: hoje
+            enum: [hoje, semana, mes, ano]
+          description: Período do faturamento
+      responses:
+        '200':
+          description: Faturamento retornado
+
+  /barbeiros/bloquear-horario:
+    post:
+      tags:
+        - Barbeiros
+      summary: Bloquear horário do barbeiro
+      description: Cria um bloqueio de horário para o barbeiro
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - barbeiro_id
+                - data
+                - hora_inicio
+                - hora_fim
+              properties:
+                barbeiro_id:
+                  type: string
+                  format: uuid
+                data:
+                  type: string
+                hora_inicio:
+                  type: string
+                hora_fim:
+                  type: string
+                motivo:
+                  type: string
+      responses:
+        '201':
+          description: Horário bloqueado com sucesso
+
+  /barbeiros/cancelar-meu-agendamento:
+    post:
+      tags:
+        - Barbeiros
+      summary: Barbeiro cancelar próprio agendamento
+      description: |
+        Permite que o barbeiro cancele um agendamento via WhatsApp.
+
+        **Aceita 2 formas de cancelamento:**
+
+        **FORMA 1 - RECOMENDADA (Usando ID):** ⭐
+        - Mais simples e direto
+        - Apenas 1 parâmetro: `agendamento_id`
+        - Sem chance de erro
+        - Ideal para usar com botões interativos
+
+        **FORMA 2 - ALTERNATIVA (Usando nome e hora):**
+        - Compatibilidade com fluxos antigos
+        - Parâmetros: `barbeiro_nome`, `cliente_nome`, `hora`
+        - Depende de extração correta do texto
+
+        **Exemplo de uso:**
+        ```bash
+        # Forma 1 - Com ID
+        curl -X POST 'https://vincebarbearia.vercel.app/api/barbeiros/cancelar-meu-agendamento' \
+          -H 'Content-Type: application/json' \
+          -d '{"agendamento_id": "abc123-uuid"}'
+
+        # Forma 2 - Com nome e hora
+        curl -X POST 'https://vincebarbearia.vercel.app/api/barbeiros/cancelar-meu-agendamento' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "barbeiro_nome": "Hiago",
+            "cliente_nome": "João",
+            "hora": "14:00"
+          }'
+        ```
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  title: Forma 1 - Com ID (Recomendada)
+                  required:
+                    - agendamento_id
+                  properties:
+                    agendamento_id:
+                      type: string
+                      format: uuid
+                      description: UUID do agendamento (retornado pela API de consulta)
+                      example: "abc123-def456-uuid-agendamento"
+                - type: object
+                  title: Forma 2 - Com nome e hora (Alternativa)
+                  required:
+                    - barbeiro_nome
+                    - cliente_nome
+                    - hora
+                  properties:
+                    barbeiro_nome:
+                      type: string
+                      description: Nome do barbeiro OU UUID do barbeiro
+                      example: "Hiago"
+                    cliente_nome:
+                      type: string
+                      description: Nome do cliente (pode ser parcial)
+                      example: "João"
+                    hora:
+                      type: string
+                      pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$'
+                      description: Hora do agendamento (HH:MM)
+                      example: "14:00"
+                    data:
+                      type: string
+                      description: Data do agendamento (DD/MM/YYYY). Padrão = hoje
+                      example: "21/12/2024"
+            examples:
+              forma1:
+                summary: Forma 1 - Com ID (Recomendada)
+                value:
+                  agendamento_id: "abc123-def456-uuid-agendamento"
+              forma2:
+                summary: Forma 2 - Com nome e hora
+                value:
+                  barbeiro_nome: "Hiago"
+                  cliente_nome: "João"
+                  hora: "14:00"
+      responses:
+        '200':
+          description: Agendamento cancelado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Agendamento cancelado com sucesso!"
+                  data:
+                    type: object
+                    properties:
+                      agendamento_id:
+                        type: string
+                        format: uuid
+                      cliente:
+                        type: string
+                        example: "João Silva"
+                      data:
+                        type: string
+                        example: "21/12/2024"
+                      hora:
+                        type: string
+                        example: "14:00"
+                      valor:
+                        type: number
+                        format: float
+                        example: 70.00
+                      mensagem_whatsapp:
+                        type: string
+                        description: Mensagem formatada para enviar no WhatsApp
+        '400':
+          description: Parâmetros inválidos ou faltando
+        '404':
+          description: Agendamento não encontrado ou já cancelado
+        '500':
+          description: Erro interno do servidor
+
+  /barbeiros/horarios:
+    get:
+      tags:
+        - Barbeiros
+      summary: Consultar horários do barbeiro
+      description: Retorna configuração de horários de trabalho
+      parameters:
+        - name: barbeiro_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Horários retornados
+
+  /barbeiros/configurar-webhook:
+    post:
+      tags:
+        - Webhooks
+      summary: Configurar webhook personalizado para barbeiro
+      description: |
+        Configura um webhook personalizado para um barbeiro específico.
+        O barbeiro receberá notificações sobre seus próprios agendamentos.
+
+        **Eventos disponíveis:**
+        - `novo_agendamento`: Disparado quando um novo agendamento é criado
+        - `cancelamento`: Disparado quando um agendamento é cancelado
+        - `confirmacao`: Disparado quando um agendamento é confirmado
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - barbeiro_id
+                - webhook_url
+              properties:
+                barbeiro_id:
+                  type: string
+                  format: uuid
+                webhook_url:
+                  type: string
+                  format: uri
+                eventos:
+                  type: array
+                  items:
+                    type: string
+                    enum: [novo_agendamento, cancelamento, confirmacao]
+                  default: [novo_agendamento, cancelamento, confirmacao]
+                ativo:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Webhook atualizado
+        '201':
+          description: Webhook criado
+
+  /barbeiros/webhooks:
+    get:
+      tags:
+        - Webhooks
+      summary: Listar webhooks configurados para barbeiro
+      description: Retorna webhooks configurados para um barbeiro específico
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: barbeiro_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: UUID do barbeiro (OBRIGATÓRIO)
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Lista de webhooks do barbeiro
+        '400':
+          description: barbeiro_id é obrigatório
+
+  # =====================
+  # CLIENTES
+  # =====================
+
+  /clientes/criar:
+    post:
+      tags:
+        - Clientes
+      summary: Cadastrar novo cliente
+      description: Cria um novo cliente no sistema
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nome_completo
+                - telefone
+              properties:
+                nome_completo:
+                  type: string
+                telefone:
+                  type: string
+                email:
+                  type: string
+                data_nascimento:
+                  type: string
+                profissao:
+                  type: string
+                estado_civil:
+                  type: string
+                tem_filhos:
+                  type: boolean
+                profissional_preferido:
+                  type: string
+                observacoes:
+                  type: string
+                is_vip:
+                  type: boolean
+                como_soube:
+                  type: string
+                gosta_conversar:
+                  type: boolean
+      responses:
+        '200':
+          description: Cliente criado com sucesso
+        '409':
+          description: Cliente já cadastrado com este telefone
+
+  /clientes/atualizar:
+    post:
+      tags:
+        - Clientes
+      summary: Atualizar dados do cliente
+      description: Atualiza informações de um cliente existente
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cliente_id
+              properties:
+                cliente_id:
+                  type: string
+                  format: uuid
+                nome_completo:
+                  type: string
+                email:
+                  type: string
+                telefone:
+                  type: string
+                observacoes:
+                  type: string
+      responses:
+        '200':
+          description: Cliente atualizado
+
+  /clientes/deletar:
+    delete:
+      tags:
+        - Clientes
+      summary: Deletar cliente (incluindo leads frios)
+      description: |
+        Deleta permanentemente um cliente do sistema.
+
+        **⚠️ ATENÇÃO:** Esta operação é irreversível!
+
+        **Validações:**
+        - Se o cliente possuir agendamentos futuros (status: agendado/confirmado), a deleção será BLOQUEADA
+        - Se o cliente possuir apenas histórico ou agendamentos concluidos/cancelados, será deletado normalmente
+        - Ideal para uso por IA/chatbots para remover leads frios automaticamente
+
+        **Quando usar:**
+        - Leads que nunca agendaram após X dias
+        - Clientes inativos que desejam ser removidos
+        - Contas duplicadas que precisam ser mergeadas (deletar a duplicada)
+
+        **Casos de uso por IA:**
+        ```bash
+        # Deletar lead frio por ID
+        curl -X DELETE 'https://vincebarbearia.vercel.app/api/clientes/deletar' \
+          -H 'Authorization: Bearer SEU_TOKEN' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "cliente_id": "uuid-cliente-aqui"
+          }'
+
+        # Deletar lead frio por telefone
+        curl -X DELETE 'https://vincebarbearia.vercel.app/api/clientes/deletar' \
+          -H 'Authorization: Bearer SEU_TOKEN' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "telefone": "11999999999"
+          }'
+        ```
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cliente_id
+              properties:
+                cliente_id:
+                  type: string
+                  format: uuid
+                  description: UUID do cliente a ser deletado (OBRIGATÓRIO se não usar telefone)
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+                telefone:
+                  type: string
+                  description: Telefone do cliente (OBRIGATÓRIO se não usar cliente_id)
+                  example: "11999999999"
+            examples:
+              por_id:
+                summary: Deletar por ID (Recomendado)
+                value:
+                  cliente_id: "550e8400-e29b-41d4-a716-446655440000"
+              por_telefone:
+                summary: Deletar por telefone
+                value:
+                  telefone: "11999999999"
+      responses:
+        '200':
+          description: Cliente deletado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Cliente deletado com sucesso!"
+                  data:
+                    type: object
+                    properties:
+                      cliente_id:
+                        type: string
+                        format: uuid
+                      nome:
+                        type: string
+                        example: "João Silva"
+                      telefone:
+                        type: string
+                        example: "11999999999"
+                      deletado_em:
+                        type: string
+                        format: date-time
+        '400':
+          description: Não é possível deletar o cliente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Não é possível deletar este cliente"
+                  motivo:
+                    type: string
+                    example: "Cliente possui agendamentos futuros agendados"
+                  agendamentos_futuros:
+                    type: integer
+                    example: 2
+                    description: Quantidade de agendamentos futuros que impedem a deleção
+                  detalhes:
+                    type: string
+                    example: "Cancele ou conclua todos os agendamentos antes de deletar o cliente"
+        '401':
+          description: Token não fornecido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Token inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cliente não encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: string
+                    example: "Cliente não encontrado"
+        '500':
+          description: Erro interno do servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /clientes/historico:
+    get:
+      tags:
+        - Clientes
+      summary: Histórico de agendamentos do cliente
+      description: |
+        Retorna todos os agendamentos passados e futuros do cliente.
+
+        **⚠️ ESCOLHA UMA das opções abaixo:**
+        - Por telefone (campo: telefone) - RECOMENDADO para N8N/WhatsApp
+        - Por ID do cliente (campo: cliente_id)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: telefone
+          in: query
+          required: false
+          schema:
+            type: string
+          description: "[OPÇÃO 1] Telefone do cliente (RECOMENDADO)"
+          example: "11970307000"
+        - name: cliente_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: "[OPÇÃO 2] UUID do cliente"
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Histórico retornado
+        '400':
+          description: telefone ou cliente_id é obrigatório
+
+  /clientes/meus-agendamentos:
+    get:
+      tags:
+        - Clientes
+      summary: Meus agendamentos do cliente
+      description: |
+        Retorna os agendamentos FUTUROS de um cliente pelo telefone.
+
+        **⚠️ IMPORTANTE: Envie o telefone via header OU query parameter**
+
+        **Exemplo com HEADER (recomendado para N8N):**
+        ```bash
+        curl -X GET 'https://vincebarbearia.vercel.app/api/clientes/meus-agendamentos' \
+          -H 'Authorization: Bearer SEU_TOKEN' \
+          -H 'telefone: 11970307000'
+        ```
+
+        **Exemplo com QUERY:**
+        ```bash
+        curl -X GET 'https://vincebarbearia.vercel.app/api/clientes/meus-agendamentos?telefone=11970307000' \
+          -H 'Authorization: Bearer SEU_TOKEN'
+        ```
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: telefone
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Telefone do cliente (OBRIGATÓRIO - pode ser enviado via header ou query)
+          example: "11970307000"
+      responses:
+        '200':
+          description: Agendamentos futuros do cliente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cliente:
+                    type: object
+                    properties:
+                      telefone:
+                        type: string
+                      nome:
+                        type: string
+                  total_agendamentos:
+                    type: integer
+                  proximo_agendamento:
+                    type: object
+                  agendamentos_futuros:
+                    type: array
+                    items:
+                      type: object
+              example:
+                cliente:
+                  telefone: "11970307000"
+                  nome: "João Silva"
+                total_agendamentos: 2
+                proximo_agendamento:
+                  id: "uuid-123"
+                  data: "20/12/2025"
+                  hora_inicio: "14:30"
+                  barbeiro: "Hiago"
+                  pode_cancelar: true
+                agendamentos_futuros:
+                  - id: "uuid-123"
+                    data: "20/12/2025"
+                    hora_inicio: "14:30"
+                    barbeiro: "Hiago"
+        '400':
+          description: Telefone não fornecido
+
+  # =====================
+  # SERVIÇOS
+  # =====================
+
+  /servicos:
+    get:
+      tags:
+        - Serviços
+      summary: Listar serviços ativos
+      description: Retorna todos os serviços disponíveis para agendamento
+      responses:
+        '200':
+          description: Lista de serviços
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Servico'
+
+    post:
+      tags:
+        - Serviços
+      summary: Criar novo serviço
+      description: Adiciona um novo serviço ao catálogo
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nome
+                - preco
+                - duracao_minutos
+              properties:
+                nome:
+                  type: string
+                descricao:
+                  type: string
+                preco:
+                  type: number
+                duracao_minutos:
+                  type: integer
+                categoria:
+                  type: string
+      responses:
+        '201':
+          description: Serviço criado com sucesso
+
+    put:
+      tags:
+        - Serviços
+      summary: Atualizar serviço
+      description: Modifica dados de um serviço existente
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                nome:
+                  type: string
+                descricao:
+                  type: string
+                preco:
+                  type: number
+                duracao_minutos:
+                  type: integer
+                categoria:
+                  type: string
+                ativo:
+                  type: boolean
+      responses:
+        '200':
+          description: Serviço atualizado
+
+    delete:
+      tags:
+        - Serviços
+      summary: Desativar serviço
+      description: Marca um serviço como inativo (soft delete)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Serviço desativado
+
+  # =====================
+  # PRODUTOS
+  # =====================
+
+  /produtos/listar:
+    get:
+      tags:
+        - Produtos
+      summary: Listar produtos
+      description: Retorna todos os produtos do catálogo
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: ativo
+          in: query
+          schema:
+            type: boolean
+        - name: categoria
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de produtos
+
+  /produtos/criar:
+    post:
+      tags:
+        - Produtos
+      summary: Criar novo produto
+      description: |
+        Cria um novo produto no catálogo.
+
+        **Nota:** Os valores numéricos aceitam tanto number quanto string (ex: 45.00 ou "45.00")
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nome
+                - preco
+              properties:
+                nome:
+                  type: string
+                descricao:
+                  type: string
+                preco:
+                  oneOf:
+                    - type: number
+                    - type: string
+                  example: 45.00
+                categoria:
+                  type: string
+                estoque:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                  default: 0
+                ativo:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          description: Produto criado
+
+  /produtos/atualizar:
+    post:
+      tags:
+        - Produtos
+      summary: Atualizar produto existente
+      description: |
+        Atualiza dados de um produto existente (preço, estoque, status, etc).
+
+        **Nota:** Os valores numéricos aceitam tanto number quanto string
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - produto_id
+              properties:
+                produto_id:
+                  type: string
+                  format: uuid
+                nome:
+                  type: string
+                descricao:
+                  type: string
+                preco:
+                  oneOf:
+                    - type: number
+                    - type: string
+                categoria:
+                  type: string
+                estoque:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                ativo:
+                  type: boolean
+      responses:
+        '200':
+          description: Produto atualizado
+
+  # =====================
+  # PLANOS
+  # =====================
+
+  /planos/listar:
+    get:
+      tags:
+        - Planos
+      summary: Listar planos de fidelidade
+      description: Retorna todos os planos disponíveis
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: ativo
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Lista de planos
+
+  /planos/criar:
+    post:
+      tags:
+        - Planos
+      summary: Criar novo plano
+      description: |
+        Cria um novo plano de fidelidade.
+
+        **Nota:** Todos os valores numéricos aceitam tanto number quanto string
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - nome
+                - valor_original
+                - valor_total
+                - quantidade_servicos
+                - validade_dias
+              properties:
+                nome:
+                  type: string
+                descricao:
+                  type: string
+                valor_original:
+                  oneOf:
+                    - type: number
+                    - type: string
+                  description: Valor se fosse comprar serviços separados
+                valor_total:
+                  oneOf:
+                    - type: number
+                    - type: string
+                  description: Valor do plano (com desconto)
+                quantidade_servicos:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                  description: Quantidade de serviços inclusos
+                validade_dias:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                  description: Dias de validade do plano
+                ativo:
+                  type: boolean
+                  default: true
+      responses:
+        '201':
+          description: Plano criado
+
+  /planos/atualizar:
+    post:
+      tags:
+        - Planos
+      summary: Atualizar plano existente
+      description: |
+        Atualiza dados de um plano existente.
+
+        **Nota:** Todos os valores numéricos aceitam tanto number quanto string.
+        A economia é recalculada automaticamente.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - plano_id
+              properties:
+                plano_id:
+                  type: string
+                  format: uuid
+                nome:
+                  type: string
+                descricao:
+                  type: string
+                valor_original:
+                  oneOf:
+                    - type: number
+                    - type: string
+                valor_total:
+                  oneOf:
+                    - type: number
+                    - type: string
+                quantidade_servicos:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                validade_dias:
+                  oneOf:
+                    - type: integer
+                    - type: string
+                ativo:
+                  type: boolean
+      responses:
+        '200':
+          description: Plano atualizado
+
+  # =====================
+  # CRON E AUTOMAÇÕES
+  # =====================
+
+  /cron/lembretes:
+    get:
+      tags:
+        - Cron
+      summary: Enviar lembretes automáticos
+      description: |
+        Endpoint para cron jobs enviarem lembretes automaticamente.
+
+        **Este endpoint requer autenticação especial via header:**
+        ```
+        Authorization: Bearer CRON_SECRET
+        ```
+
+        Onde `CRON_SECRET` é a variável de ambiente configurada no servidor.
+
+        **Responsabilidades:**
+        1. Verificar agendamentos que precisam de lembrete 24h antes
+        2. Verificar agendamentos que precisam de lembrete 2h antes
+        3. Verificar agendamentos para follow-up 3 dias após
+        4. Verificar agendamentos para follow-up 21 dias após (reagendar)
+        5. Disparar webhooks N8N para cada notificação
+
+        **Configuração do Cron:**
+        Configure seu servidor para chamar este endpoint de hora em hora (8h-20h).
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Cron executado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      lembrete_24h:
+                        type: integer
+                      lembrete_2h:
+                        type: integer
+                      followup_3d:
+                        type: integer
+                      followup_21d:
+                        type: integer
+                      erros:
+                        type: array
+                        items:
+                          type: string
+        '401':
+          description: Não autorizado
+
+  /lembretes:
+    get:
+      tags:
+        - Cron
+      summary: Histórico de lembretes enviados
+      description: Consulta lembretes que foram disparados
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de lembretes
+
+  # =====================
+  # ADMIN
+  # =====================
+
+  /admin/estatisticas:
+    get:
+      tags:
+        - Admin
+      summary: Estatísticas gerais do sistema
+      description: |
+        Retorna estatísticas gerais da barbearia para o período especificado.
+
+        **Períodos disponíveis:**
+        - hoje
+        - semana
+        - mes (padrão)
+        - ano
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: periodo
+          in: query
+          schema:
+            type: string
+            default: mes
+            enum: [hoje, semana, mes, ano]
+          description: Período das estatísticas
+        - name: data_inicio
+          in: query
+          schema:
+            type: string
+          description: Data de início customizada (DD-MM-YYYY)
+        - name: data_fim
+          in: query
+          schema:
+            type: string
+          description: Data fim customizada (DD-MM-YYYY)
+      responses:
+        '200':
+          description: Estatísticas retornadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_agendamentos:
+                    type: integer
+                  total_clientes:
+                    type: integer
+                  faturamento_mensal:
+                    type: number
+                  agendamentos_hoje:
+                    type: integer
+
+  # =====================
+  # SYNC E DEBUG
+  # =====================
+
+  /sync/google-calendar:
+    post:
+      tags:
+        - Admin
+      summary: Sincronizar com Google Calendar
+      description: Sincroniza agendamento com Google Calendar do barbeiro
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                agendamento_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Sincronização realizada
+
+  /debug/servicos:
+    get:
+      tags:
+        - Debug
+      summary: Debug de serviços
+      description: Endpoint de depuração para verificar serviços cadastrados
+      responses:
+        '200':
+          description: Lista de serviços com detalhes de debug

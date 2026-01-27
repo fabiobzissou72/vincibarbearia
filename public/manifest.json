@@ -1,0 +1,41 @@
+{
+  "name": "Vince Barbearia",
+  "short_name": "Vince",
+  "description": "Sistema completo de gestão para barbearias",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1c283c",
+  "theme_color": "#0891b2",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Agendamentos",
+      "short_name": "Agenda",
+      "description": "Ver agendamentos",
+      "url": "/dashboard/agendamentos",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
