@@ -94,8 +94,11 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <Link href="/register" className="text-cyan-400 hover:text-cyan-300 text-sm transition-colors">
+          <div className="mt-6 text-center space-y-2">
+            <Link href="/esqueci-senha" className="block text-cyan-400 hover:text-cyan-300 text-sm transition-colors">
+              Esqueceu sua senha?
+            </Link>
+            <Link href="/register" className="block text-slate-400 hover:text-slate-300 text-sm transition-colors">
               Não tem uma conta? Cadastre-se
             </Link>
           </div>

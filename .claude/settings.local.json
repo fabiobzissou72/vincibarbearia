@@ -26,7 +26,8 @@
       "Bash(ls:*)",
       "Bash(npm run build:*)",
       "Bash(cp:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(git fetch:*)"
     ]
   }
 }

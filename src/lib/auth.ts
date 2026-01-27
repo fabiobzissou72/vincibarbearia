@@ -184,6 +184,93 @@ export async function registrarProfissional(
   }
 }
 
+/**
+ * Reseta a senha de um profissional e retorna a nova senha temporária
+ */
+export async function resetarSenhaProfissional(email: string): Promise<{ success: boolean; novaSenha?: string; error?: string }> {
+  try {
+    // Verificar se o email existe
+    const { data: loginData, error: loginError } = await supabase
+      .from('profissionais_login')
+      .select('id, profissional_id')
+      .eq('email', email)
+      .eq('ativo', true)
+      .single()
+
+    if (loginError || !loginData) {
+      return { success: false, error: 'Email não encontrado no sistema' }
+    }
+
+    // Gerar senha temporária
+    const novaSenha = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase()
+
+    // Hash da nova senha
+    const senhaHash = await hashSenha(novaSenha)
+
+    // Atualizar senha no banco
+    const { error: updateError } = await supabase
+      .from('profissionais_login')
+      .update({ senha: senhaHash })
+      .eq('id', loginData.id)
+
+    if (updateError) {
+      return { success: false, error: 'Erro ao atualizar senha' }
+    }
+
+    return { success: true, novaSenha }
+  } catch (error) {
+    console.error('Erro ao resetar senha:', error)
+    return { success: false, error: 'Erro interno do servidor' }
+  }
+}
+
+/**
+ * Altera a senha de um profissional (usado pelo próprio usuário)
+ */
+export async function alterarSenhaProfissional(
+  profissionalId: string,
+  senhaAtual: string,
+  novaSenha: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Buscar dados de login
+    const { data: loginData, error: loginError } = await supabase
+      .from('profissionais_login')
+      .select('id, senha')
+      .eq('profissional_id', profissionalId)
+      .eq('ativo', true)
+      .single()
+
+    if (loginError || !loginData) {
+      return { success: false, error: 'Profissional não encontrado' }
+    }
+
+    // Verificar senha atual
+    const senhaValida = await verificarSenha(senhaAtual, loginData.senha)
+    if (!senhaValida) {
+      return { success: false, error: 'Senha atual incorreta' }
+    }
+
+    // Hash da nova senha
+    const senhaHash = await hashSenha(novaSenha)
+
+    // Atualizar senha
+    const { error: updateError } = await supabase
+      .from('profissionais_login')
+      .update({ senha: senhaHash })
+      .eq('id', loginData.id)
+
+    if (updateError) {
+      return { success: false, error: 'Erro ao atualizar senha' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Erro ao alterar senha:', error)
+    return { success: false, error: 'Erro interno do servidor' }
+  }
+}
+
 export async function getProfissionais(): Promise<Profissional[]> {
   try {
     const { data, error } = await supabase
