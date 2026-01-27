@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { UserCheck, Plus, Edit, Trash2, Phone, Mail, Star, Award, X, Calendar } from 'lucide-react'
+import { UserCheck, Plus, Edit, Trash2, Phone, Mail, Star, Award, X, Calendar, Lock, Eye, EyeOff } from 'lucide-react'
 
 interface Profissional {
   id: string
@@ -34,6 +34,12 @@ export default function ProfissionaisPage() {
     especialidade: '',
     ativo: true
   })
+
+  // Estados para alteração de senha
+  const [novaSenha, setNovaSenha] = useState('')
+  const [confirmarSenha, setConfirmarSenha] = useState('')
+  const [mostrarSenha, setMostrarSenha] = useState(false)
+  const [alterandoSenha, setAlterandoSenha] = useState(false)
 
   useEffect(() => {
     loadProfissionais()
@@ -238,6 +244,9 @@ export default function ProfissionaisPage() {
     setEspecialidadesSelecionadas([])
     setFotoFile(null)
     setFotoPreview(null)
+    setNovaSenha('')
+    setConfirmarSenha('')
+    setMostrarSenha(false)
     setEditForm({
       nome: '',
       email: '',
@@ -245,6 +254,53 @@ export default function ProfissionaisPage() {
       especialidade: '',
       ativo: true
     })
+  }
+
+  const handleAlterarSenha = async () => {
+    if (!editingProfissional) return
+
+    if (!novaSenha) {
+      alert('Digite a nova senha')
+      return
+    }
+
+    if (novaSenha !== confirmarSenha) {
+      alert('As senhas não conferem')
+      return
+    }
+
+    if (novaSenha.length < 6) {
+      alert('A nova senha deve ter pelo menos 6 caracteres')
+      return
+    }
+
+    try {
+      setAlterandoSenha(true)
+
+      const response = await fetch('/api/auth/resetar-senha-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          profissionalId: editingProfissional.id,
+          novaSenha
+        })
+      })
+
+      const data = await response.json()
+
+      if (!data.success) {
+        alert(data.error || 'Erro ao alterar senha')
+      } else {
+        alert('Senha alterada com sucesso!')
+        setNovaSenha('')
+        setConfirmarSenha('')
+      }
+    } catch (error) {
+      console.error('Erro ao alterar senha:', error)
+      alert('Erro ao conectar com o servidor')
+    } finally {
+      setAlterandoSenha(false)
+    }
   }
 
   const handleEditProfissional = async () => {
@@ -751,6 +807,62 @@ export default function ProfissionaisPage() {
                   <p className="text-xs text-slate-500 mt-1">Digite o nome da nova especialidade e clique em Adicionar</p>
                 )}
               </div>
+
+              {/* Seção de Alterar Senha - Apenas na edição */}
+              {editingProfissional && (
+                <div className="border-t border-slate-600 pt-4 mt-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Lock className="w-5 h-5 text-purple-400" />
+                    <h3 className="text-white font-medium">Alterar Senha de Acesso</h3>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm text-slate-400 mb-1">Nova Senha</label>
+                      <div className="flex gap-2">
+                        <input
+                          type={mostrarSenha ? "text" : "password"}
+                          value={novaSenha}
+                          onChange={(e) => setNovaSenha(e.target.value)}
+                          placeholder="Mínimo 6 caracteres"
+                          className="flex-1 bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setMostrarSenha(!mostrarSenha)}
+                          className="px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded transition-colors"
+                        >
+                          {mostrarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-400 mb-1">Confirmar Senha</label>
+                      <input
+                        type={mostrarSenha ? "text" : "password"}
+                        value={confirmarSenha}
+                        onChange={(e) => setConfirmarSenha(e.target.value)}
+                        placeholder="Repita a senha"
+                        className="w-full bg-slate-700/50 border border-slate-600/50 rounded px-3 py-2 text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {confirmarSenha && novaSenha !== confirmarSenha && (
+                    <p className="text-red-400 text-xs mt-1">As senhas não conferem</p>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleAlterarSenha}
+                    disabled={alterandoSenha || !novaSenha || novaSenha !== confirmarSenha || novaSenha.length < 6}
+                    className="mt-3 flex items-center justify-center space-x-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-600 text-white rounded transition-colors disabled:cursor-not-allowed"
+                  >
+                    <Lock className="w-4 h-4" />
+                    <span>{alterandoSenha ? 'Alterando...' : 'Alterar Senha'}</span>
+                  </button>
+                </div>
+              )}
 
               <div className="flex space-x-3 pt-4">
                 <button
