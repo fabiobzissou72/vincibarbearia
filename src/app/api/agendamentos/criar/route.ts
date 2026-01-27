@@ -210,10 +210,20 @@ export async function POST(request: NextRequest) {
       console.log('🔄 Iniciando rodízio automático...')
 
       // Primeiro, buscar TODOS os barbeiros ativos
-      const { data: todosBarbeiros } = await supabase
+      const { data: todosBarbeiros, error: barbeirosError } = await supabase
         .from('profissionais')
         .select('*')
         .eq('ativo', true)
+
+      // VALIDAÇÃO CRÍTICA: Verificar se existem barbeiros ativos
+      if (barbeirosError || !todosBarbeiros || todosBarbeiros.length === 0) {
+        console.error('❌ [RODÍZIO] Nenhum barbeiro ativo encontrado!')
+        return NextResponse.json({
+          success: false,
+          message: 'Nenhum profissional disponível no momento',
+          errors: ['Não há barbeiros ativos cadastrados no sistema. Entre em contato com a barbearia.']
+        }, { status: 503 })
+      }
 
       console.log('👥 Barbeiros ativos:', todosBarbeiros?.map(b => b.nome).join(', '))
 
