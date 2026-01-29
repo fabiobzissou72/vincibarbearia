@@ -479,9 +479,12 @@ function ClientesPageContent() {
       console.log('Salvando editForm:', editForm)
       console.log('Plano ID sendo salvo:', editForm.plano_id)
 
+      // Remover campos que não existem na tabela clientes
+      const { data_ultimo_servico, ultimo_servico, menory_long, ...dadosParaSalvar } = editForm
+
       const { error } = await supabase
         .from('clientes')
-        .update(editForm)
+        .update(dadosParaSalvar)
         .eq('id', editingCliente.id)
 
       if (error) throw error
@@ -520,9 +523,12 @@ function ClientesPageContent() {
 
   const handleAddCliente = async () => {
     try {
+      // Remover campos que não existem na tabela clientes
+      const { data_ultimo_servico, ultimo_servico, menory_long, ...dadosParaSalvar } = editForm
+
       const { error } = await supabase
         .from('clientes')
-        .insert([editForm])
+        .insert([dadosParaSalvar])
 
       if (error) throw error
 
